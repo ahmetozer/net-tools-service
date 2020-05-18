@@ -56,7 +56,10 @@ func newWebserver(logger *log.Logger) *http.Server {
 
 
 				// return success
+        setLiveOutputHeaders(w);
 				w.WriteHeader(http.StatusOK)
+
+
 				cmd := exec.Command("ping", "-c 5", "1.1.1.1")
 				// Organize pipelines
 				pipeIn, pipeWriter := io.Pipe()
@@ -83,4 +86,12 @@ func newWebserver(logger *log.Logger) *http.Server {
 			//WriteTimeout: 10 * time.Second,
 			//IdleTimeout:  15 * time.Second,
 		}
+}
+
+func setLiveOutputHeaders(w http.ResponseWriter) {
+  w.Header().Set("content-type", "application/x-javascript")
+  w.Header().Set("expires", "10s")
+  w.Header().Set("Pragma", "public")
+  w.Header().Set("Cache-Control", "public, maxage=10, proxy-revalidate")
+  //w.Header().Set("X-Accel-Buffering", "no")
 }
