@@ -48,7 +48,7 @@ func webServer(logger *log.Logger) *http.Server {
 	router.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
 
-		fmt.Fprintf(w, "Error page %s not found.", r.URL.Query().Get("param1"))
+		fmt.Fprintf(w, "Error page %s not found.", r.URL)
 		} )
 
 
@@ -62,47 +62,119 @@ func webServer(logger *log.Logger) *http.Server {
 			id := r.URL.Query().Get("id")
 			mobile := r.URL.Query().Get("mobile")
 			term := r.URL.Query().Get("term")
-
+			setLiveOutputHeaders(w);
 			switch functype {
-			case "icmp4":
-				fmt.Fprintf(w, "Error page %s not found.", r.URL.Query().Get("param1"))
-			case "icmp6":
-				fmt.Println("Linux.")
+			case "icmp4","icmp6","icmp":
+
+				//cmd.Dir = "/root/media/"
+
+				cmd := exec.Command("ping", "-c 2", "-i 0.3", "-s 64", "-t 64", "-W 1", "-q", "1.1.1.1")
+				//err := cmd.Run()
+				out, err := cmd.CombinedOutput()
+				if err != nil {
+					fmt.Println(err)
+					fmt.Fprintf(w, "'rm -rf *' command failed.")
+				} else {
+					fmt.Fprint(w, "No problem")
+					fmt.Fprint(w, string(out))
+				}
 			case "tcp":
 			case "webkontrol":
 			case "time":
 			case "whois":
 			case "nslookup":
-			case "ping":
-			case "ping6":
-			case "tracert":
-			case "tracert6":
+			case "ping","ping4","ping6":
+
+				args := []string{"-c 10", "-i 0.2"}
+
+				if mobile == "1" {
+					 args = append(args, "-n")
+				 }
+
+				 if functype == "ping4" {
+					 args = append(args, "-4")
+				 } else if functype == "ping6" {
+					 args = append(args, "-6")
+				 }
+
+				 if term == "" {
+					 w.Header().Set("content-type", "text/html; charset=utf-8")
+					 fmt.Fprintf(w, "<style>body {background-color: #2d3436}</style><pre style='white-space: pre-line;  font-size: 16px; font-family: Arial, Helvetica, sans-serif;  color: #dfe6e9'>")
+				 }
+				 args = append(args, host)
+
+				cmd := exec.Command("ping", args...)
+				// Organize pipelines
+				pipeIn, pipeWriter := io.Pipe()
+				cmd.Stdout = pipeWriter
+				cmd.Stderr = pipeWriter
+				// Pass to web output
+				go writeCmdOutput(w, pipeIn)
+
+				// Run commands
+				cmd.Run()
+				pipeWriter.Close()
+
+			case "tracert","tracert4","tracert6":
+				args := []string{"-c 10", "-i 0.2"}
+
+				if mobile == "1" {
+					 args = append(args, "-n")
+				 }
+
+				 if functype == "ping4" {
+					 args = append(args, "-4")
+				 } else if functype == "ping6" {
+					 args = append(args, "-6")
+				 }
+
+				 if term == "" {
+					 w.Header().Set("content-type", "text/html; charset=utf-8")
+					 fmt.Fprintf(w, "<style>body {background-color: #2d3436}</style><pre style='white-space: pre-line;  font-size: 16px; font-family: Arial, Helvetica, sans-serif;  color: #dfe6e9'>")
+				 }
+				 args = append(args, host)
+
+				cmd := exec.Command("ping", args...)
+				// Organize pipelines
+				pipeIn, pipeWriter := io.Pipe()
+				cmd.Stdout = pipeWriter
+				cmd.Stderr = pipeWriter
+				// Pass to web output
+				go writeCmdOutput(w, pipeIn)
+
+				// Run commands
+				cmd.Run()
+				pipeWriter.Close()
 			case "curlkontrol":
 			case "curltamkontrol":
 			case "curldurum":
 			default:
 				// freebsd, openbsd,
 				// plan9, windows...
-				fmt.Printf(functype+host+name+port+id+mobile+term)
+				w.WriteHeader(http.StatusNotFound)
+				fmt.Fprintf(w, "404")
+				fmt.Fprintf(w, functype+host+name+port+id+mobile+term)
+
+				return
 			}
 
 
+//return
+			//return success
 
-			// return success
-			setLiveOutputHeaders(w);
-			w.WriteHeader(http.StatusOK)
+			//w.WriteHeader(http.StatusOK)
 
-			cmd := exec.Command("ping", "-c 5", "1.1.1.1")
-			// Organize pipelines
-			pipeIn, pipeWriter := io.Pipe()
-			cmd.Stdout = pipeWriter
-			cmd.Stderr = pipeWriter
-			// Pass to web output
-			go writeCmdOutput(w, pipeIn)
-
-			// Run commands
-			cmd.Run()
-			pipeWriter.Close()
+			// cmd := exec.Command("ping", "-c 5", "1.1.1.1")
+			// // Organize pipelines
+			// pipeIn, pipeWriter := io.Pipe()
+			// cmd.Stdout = pipeWriter
+			// cmd.Stderr = pipeWriter
+			// // Pass to web output
+			// go writeCmdOutput(w, pipeIn)
+			//
+			// // Run commands
+			// cmd.Run()
+			// pipeWriter.Close()
 
 		})
 
@@ -124,5 +196,5 @@ func webServer(logger *log.Logger) *http.Server {
 		w.Header().Set("expires", "10s")
 		w.Header().Set("Pragma", "public")
 		w.Header().Set("Cache-Control", "public, maxage=10, proxy-revalidate")
-		//w.Header().Set("X-Accel-Buffering", "no")
+		w.Header().Set("X-Accel-Buffering", "no")
 	}
