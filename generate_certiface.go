@@ -1,4 +1,5 @@
 package main
+
 import (
 	"crypto/ecdsa"
 	"crypto/ed25519"
@@ -29,7 +30,7 @@ func publicKey(priv interface{}) interface{} {
 		return nil
 	}
 }
-func ssl_cert_generate() {
+func sslCertGenerate() {
 	flag.Parse()
 
 	// if len(*host) == 0 {
@@ -40,16 +41,16 @@ func ssl_cert_generate() {
 	// 	}
 	// }
 
-  // create Certiface dir
-  if _, err := os.Stat("/tmp/cert/"); os.IsNotExist(err) {
-    os.MkdirAll("/tmp/cert/", os.ModePerm)
-  }
+	// create Certiface dir
+	if _, err := os.Stat("/tmp/cert/"); os.IsNotExist(err) {
+		os.MkdirAll("/tmp/cert/", os.ModePerm)
+	}
 
-  if _, err := os.Stat("/tmp/cert/key.pem"); err == nil {
-    if _, err := os.Stat("/tmp/cert/cert.pem"); err == nil {
-      return
-    }
-  }
+	if _, err := os.Stat("/tmp/cert/key.pem"); err == nil {
+		if _, err := os.Stat("/tmp/cert/cert.pem"); err == nil {
+			return
+		}
+	}
 
 	var priv interface{}
 	var err error
