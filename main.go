@@ -4,12 +4,14 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"runtime"
 	//"log"
 	//"os/exec"
 	//"strconv"
 	"context"
 	"log"
 	"net/http"
+	"os/exec"
 	"os/signal"
 	"time"
 )
@@ -33,6 +35,29 @@ var (
 )
 
 func main() {
+	if runtime.GOOS != "linux" {
+		fmt.Println("This program is only works on linux devices")
+		return
+	}
+
+	requiredPrograms := []string{"ping", "traceroute", "whois", "nslookup"}
+	var requiredapps [4]bool
+	for i, s := range requiredPrograms {
+		// Get path of required programs
+		path, err := exec.LookPath(s)
+		if err == nil {
+			fmt.Printf("Required program %v %v found at %v\n", i+1, s, path)
+			requiredapps[i] = true //save to array
+		} else {
+			fmt.Printf("Required program %v %v cannot found.\n", i+1, s)
+			requiredapps[i] = false
+			if i < 4 { //sh and df is must required. If is not found in software than exit.
+				fmt.Printf("Please install %v and run this program again\n", s)
+				os.Exit(3)
+			}
+		}
+	}
+
 	flag.Bool("help", false, "")
 	flag.Bool("h", false, "")
 	flag.Usage = func() {}
