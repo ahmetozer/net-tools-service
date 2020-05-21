@@ -18,8 +18,8 @@ import (
 
 // Variables
 var (
-	certCheckOk bool   = false
-	certDir     string = "/tmp/cert"
+	certCheckOk = false
+	certDir     = "/tmp/cert"
 
 	host       = flag.String("host", "", "Comma-separated hostnames and IPs to generate a certificate for")
 	validFrom  = flag.String("start-date", "", "Creation date formatted as Jan 1 15:04:05 2011")
@@ -44,9 +44,9 @@ func main() {
 	var requiredapps [4]bool
 	for i, s := range requiredPrograms {
 		// Get path of required programs
-		path, err := exec.LookPath(s)
+		_, err := exec.LookPath(s)
 		if err == nil {
-			fmt.Printf("Required program %v %v found at %v\n", i+1, s, path)
+			//fmt.Printf("Required program %v %v found at %v\n", i+1, s, path)
 			requiredapps[i] = true //save to array
 		} else {
 			fmt.Printf("Required program %v %v cannot found.\n", i+1, s)
