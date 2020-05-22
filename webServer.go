@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"net"
 	"net/http"
 	"os/exec"
 	"regexp"
@@ -31,8 +32,6 @@ func writeCmdOutput(res http.ResponseWriter, pipeReader *io.PipeReader) {
 		res.Write(data)
 		if f, ok := res.(http.Flusher); ok {
 			f.Flush()
-			fmt.Printf(fmt.Sprint(ok))
-
 		}
 		//reset buffer
 		for i := 0; i < n; i++ {
@@ -48,6 +47,7 @@ var (
 	ipv6Regex   = `^(([0-9a-fA-F]{1,4}:){7,7}[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,7}:|([0-9a-fA-F]{1,4}:){1,6}:[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,5}(:[0-9a-fA-F]{1,4}){1,2}|([0-9a-fA-F]{1,4}:){1,4}(:[0-9a-fA-F]{1,4}){1,3}|([0-9a-fA-F]{1,4}:){1,3}(:[0-9a-fA-F]{1,4}){1,4}|([0-9a-fA-F]{1,4}:){1,2}(:[0-9a-fA-F]{1,4}){1,5}|[0-9a-fA-F]{1,4}:((:[0-9a-fA-F]{1,4}){1,6})|:((:[0-9a-fA-F]{1,4}){1,7}|:)|fe80:(:[0-9a-fA-F]{0,4}){0,4}%[0-9a-zA-Z]{1,}|::(ffff(:0{1,4}){0,1}:){0,1}((25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])\.){3,3}(25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])|([0-9a-fA-F]{1,4}:){1,4}:((25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])\.){3,3}(25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9]))$`
 	ipv4Regex   = `^(((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)(\.|$)){4})`
 	domainRegex = `^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9][a-z0-9-]{0,61}[a-z0-9]$`
+	portRegex   = "^((6553[0-5])|(655[0-2][0-9])|(65[0-4][0-9]{2})|(6[0-4][0-9]{3})|([1-5][0-9]{4})|([1-9][0-9]{3})|([1-9][0-9]{2})|([1-9][0-9])|([1-9]))$"
 )
 
 func isMayIPv4(host string) bool {
@@ -57,6 +57,21 @@ func isMayIPv4(host string) bool {
 
 func isMayIPv6(host string) bool {
 	match, _ := regexp.MatchString(ipv6Regex+`|`+domainRegex, host)
+	return match
+}
+
+func isHTTPURLScheme(scheme string) bool {
+	match, _ := regexp.MatchString(`^http$|^https$`, scheme)
+	return match
+}
+
+func isPortValid(port string) bool {
+	match, _ := regexp.MatchString(portRegex, port)
+	return match
+}
+
+func isMayDomain(host string) bool {
+	match, _ := regexp.MatchString(domainRegex, host)
 	return match
 }
 
@@ -81,6 +96,7 @@ func webServer(logger *log.Logger) *http.Server {
 		functype := r.URL.Query().Get("type")
 		host := r.URL.Query().Get("host")
 		nameserver := r.URL.Query().Get("nameserver")
+		scheme := r.URL.Query().Get("scheme")
 		port := r.URL.Query().Get("port")
 		id := r.URL.Query().Get("id")
 		mobile := r.URL.Query().Get("mobile")
@@ -162,19 +178,74 @@ func webServer(logger *log.Logger) *http.Server {
 				// To debug output
 				//fmt.Fprint(w, "\n=====================================================\n\n\n"+outString)
 			}
+			return
 		case "tcp":
-		case "webkontrol":
-			resp, err := http.Get(host)
-			if err != nil {
-				log.Fatal(err)
+			if port == "" {
+				port = "443"
 			}
 
-			// Print the HTTP Status Code and Status Name
-			fmt.Fprintf(w, `{ "code":"`+http.StatusText(resp.StatusCode)+`" }`)
+			//Check if it's a domain
+			if isMayDomain(host) {
+				// resolve domain, Pre resolvin important for net.Dialer. If its not pre resolved, Resolving time will be add to latency.
+				ips, err := net.LookupIP(host)
+				if err != nil {
+					fmt.Fprintf(w, `{ "code":"DomainResolveErr", "err":"%s" }`, err)
+					return
+				}
+				host = ips[0].String()
+			}
 
+			if isMayIPv6(host) { // Add brackets if IPv6
+				host = "[" + host + "]"
+			}
+
+			if isPortValid(port) {
+				host = host + ":" + port
+			} else {
+				fmt.Fprintf(w, `{ "code":"InvalidPort" }`)
+				return
+			}
+
+			d := net.Dialer{Timeout: 5 * time.Second}
+			dialStartTime := time.Now()
+			conn, err := d.Dial("tcp", host)
+			if err != nil {
+				fmt.Fprintf(w, `{ "code"="Down","err":"`+fmt.Sprint(err)+`" }`)
+				return
+			}
+			elaspedTime := time.Since(dialStartTime)
+			fmt.Fprintf(w, `{ "code"="ok","latency":"%d ms" }`, elaspedTime.Milliseconds())
+			defer conn.Close()
+
+			return
+		case "webkontrol":
+			if scheme == "" { // If scheme is not given, set to https
+				scheme = "https"
+			}
+			if port != "" {
+				if isPortValid(port) {
+					host = host + ":" + port
+				} else {
+					fmt.Fprintf(w, `{ "code":"InvalidPort" }`)
+					return
+				}
+			}
+			if isHTTPURLScheme(scheme) {
+				resp, err := http.Get(scheme + "://" + host)
+				if err != nil {
+					fmt.Fprintf(w, `{ "code"="Down","err":"`+fmt.Sprint(err)+`" }`)
+				} else { // Print the HTTP Status Code and Status Name
+					fmt.Fprintf(w, `{ "code":"`+http.StatusText(resp.StatusCode)+`" }`)
+				}
+				return
+			} else {
+				fmt.Fprintf(w, `{ "code":"SchemeDoesNotMatchHTTPorHTTPS" }`)
+				return
+			}
 		case "time":
 			date := time.Now()
 			fmt.Fprintf(w, `{ "time":"`+date.Format("15:04:05")+`","date":"`+date.Format("01/02/2006")+`" }`)
+			return
 		case "whois":
 			args := []string{host}
 			if term == "" {
@@ -223,9 +294,10 @@ func webServer(logger *log.Logger) *http.Server {
 				fmt.Fprintf(w, "{\"code\":\"UnknownExit\",\"exitCode\":\""+fmt.Sprint(err)+"\",\"execOut:\""+string(out)+"\"}")
 
 			} else {
-				//  Execute output to convert string
+				//  Execute output to convert string and send to web.
 				fmt.Fprintf(w, string(out))
 			}
+			return
 			/*************************
 			Live output for ping frame
 			**************************/
@@ -270,6 +342,7 @@ func webServer(logger *log.Logger) *http.Server {
 			// Run commands
 			cmd.Run()
 			pipeWriter.Close()
+			return
 			/****************************
 			Live output for tracert frame
 			*****************************/
@@ -313,9 +386,6 @@ func webServer(logger *log.Logger) *http.Server {
 			cmd.Run()
 			pipeWriter.Close()
 			return
-		case "curlkontrol":
-		case "curltamkontrol":
-		case "curldurum":
 		default:
 			// if any unknown function name given.
 			w.WriteHeader(http.StatusNotFound)
@@ -332,8 +402,8 @@ func webServer(logger *log.Logger) *http.Server {
 		Handler:  router,
 		ErrorLog: logger,
 		/* Close sockets */
-		//ReadTimeout:  5 * time.Second,
-		//WriteTimeout: 10 * time.Second,
+		ReadTimeout:  5 * time.Second,
+		WriteTimeout: 60 * time.Second,
 		//IdleTimeout:  15 * time.Second,
 	}
 }
