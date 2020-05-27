@@ -13,6 +13,7 @@ import (
 	"net/http"
 	"os/exec"
 	"os/signal"
+	"os/user"
 	"time"
 )
 
@@ -40,6 +41,16 @@ func main() {
 		return
 	}
 
+	user, err := user.Current()
+	if err != nil {
+		panic(err)
+	}
+	if user.Name != "www-data" {
+		fmt.Printf("To secure your system, please run this program as www-data."+
+			"Current user %v \n", user.Name)
+		os.Exit(3)
+	}
+
 	requiredPrograms := []string{"ping", "traceroute", "whois", "nslookup"}
 	var requiredapps [4]bool
 	for i, s := range requiredPrograms {
@@ -49,7 +60,7 @@ func main() {
 			//fmt.Printf("Required program %v %v found at %v\n", i+1, s, path)
 			requiredapps[i] = true //save to array
 		} else {
-			fmt.Printf("Required program %v %v cannot found.\n", i+1, s)
+			fmt.Printf("Required program %v : %v cannot found.\n", i+1, s)
 			requiredapps[i] = false
 			if i < 4 { //sh and df is must required. If is not found in software than exit.
 				fmt.Printf("Please install %v and run this program again\n", s)
@@ -85,7 +96,7 @@ func main() {
 	<-done
 	logger.Println("Server stopped")
 
-	fmt.Printf("Hello " + certDir)
+	fmt.Printf("Program Closed.")
 }
 
 var help = `
