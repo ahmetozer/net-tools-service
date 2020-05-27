@@ -1,17 +1,18 @@
-FROM ubuntu
-RUN export DEBIAN_FRONTEND=noninteractive; apt update; apt install iputils-ping traceroute dnsutils mtr --no-install-recommends -y
-
 FROM golang
 WORKDIR /src
 COPY . /src
+RUN CGO_ENABLED=0 go build -o /bin/looking-glass-controller
+#RUN go build -o /bin/looking-glass-controller
 
-FROM busybox:glibc
-RUN rm -rf /bin/*
+FROM ubuntu
+RUN export DEBIAN_FRONTEND=noninteractive; apt update; apt install iputils-ping traceroute dnsutils whois --no-install-recommends -y ; apt clean;apt autoclean
 
-# COPY Binaries
+# COPY Binary and service file
+COPY --from=0 /bin/looking-glass-controller        /bin/looking-glass-controller
+COPY services /etc/services
+# To allow looking-glass-controller to bind port 443
+RUN setcap CAP_NET_BIND_SERVICE=+eip /bin/looking-glass-controller
 
-COPY --from=0 /usr/bin/traceroute /bin/traceroute
-COPY --from=0 /usr/bin/ping       /bin/ping
-COPY --from=0 /usr/bin/mtr        /bin/mtr
-
-#ENTRYPOINT ["/bin/traceroute"]
+USER www-data
+ENTRYPOINT ["/bin/looking-glass-controller"]
+#CMD /bin/looking-glass-controller
