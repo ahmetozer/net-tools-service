@@ -9,6 +9,7 @@ import (
 	"os/exec"
 	"regexp"
 	"time"
+
 	//	"os"
 	//"math/rand"
 	//"encoding/base64"
@@ -48,6 +49,9 @@ var (
 	ipv4Regex   = `^(((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)(\.|$)){4})`
 	domainRegex = `^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9][a-z0-9-]{0,61}[a-z0-9]$`
 	portRegex   = "^((6553[0-5])|(655[0-2][0-9])|(65[0-4][0-9]{2})|(6[0-4][0-9]{3})|([1-5][0-9]{4})|([1-9][0-9]{3})|([1-9][0-9]{2})|([1-9][0-9])|([1-9]))$"
+
+	//iframeStyle = "<pre style='white-space: pre-line; text-shadow: 3px 3px 4px #000; font-size: 20px; font-family: Arial, Helvetica, sans-serif;  color: #000'>"
+	iframeStyle = "<pre style='white-space: pre-line; font-size: 20px; font-family: Arial, Helvetica, sans-serif;  color: #000'>"
 )
 
 func isMayIPv4(host string) bool {
@@ -89,7 +93,7 @@ func webServer(logger *log.Logger) *http.Server {
 	})
 
 	// Get System Disk informations with linux util lsblk . // JSON
-	router.HandleFunc("/system-status.php", func(w http.ResponseWriter, r *http.Request) {
+	router.HandleFunc("/looking-glass-controller", func(w http.ResponseWriter, r *http.Request) {
 		/*
 			Get arguments from url
 		*/
@@ -218,7 +222,7 @@ func webServer(logger *log.Logger) *http.Server {
 			defer conn.Close()
 
 			return
-		case "webkontrol":
+		case "webontrol":
 			if scheme == "" { // If scheme is not given, set to https
 				scheme = "https"
 			}
@@ -250,7 +254,7 @@ func webServer(logger *log.Logger) *http.Server {
 			args := []string{host}
 			if term == "" {
 				w.Header().Set("content-type", "text/html; charset=utf-8")
-				fmt.Fprintf(w, "<style>body {background-color: #2d3436}</style><pre style='white-space: pre-line;  font-size: 16px; font-family: Arial, Helvetica, sans-serif;  color: #dfe6e9'>")
+				fmt.Fprintf(w, iframeStyle)
 			}
 			cmd := exec.Command("whois", args...)
 			// Organize pipelines
@@ -281,7 +285,7 @@ func webServer(logger *log.Logger) *http.Server {
 			}
 			if term == "" {
 				w.Header().Set("content-type", "text/html; charset=utf-8")
-				fmt.Fprintf(w, "<style>body {background-color: #2d3436}</style><pre style='white-space: pre-line;  font-size: 16px; font-family: Arial, Helvetica, sans-serif;  color: #dfe6e9'>")
+				fmt.Fprintf(w, iframeStyle)
 			}
 			cmd := exec.Command("nslookup", args...)
 			out, err := cmd.CombinedOutput()
@@ -326,7 +330,7 @@ func webServer(logger *log.Logger) *http.Server {
 			// If requests comes from iframe (not term), add style to iframe
 			if term == "" {
 				w.Header().Set("content-type", "text/html; charset=utf-8")
-				fmt.Fprintf(w, "<style>body {background-color: #2d3436}</style><pre style='white-space: pre-line;  font-size: 16px; font-family: Arial, Helvetica, sans-serif;  color: #dfe6e9'>")
+				fmt.Fprintf(w, iframeStyle)
 			}
 
 			args = append(args, host) // add host to arguments
@@ -352,7 +356,8 @@ func webServer(logger *log.Logger) *http.Server {
 			if mobile == "1" {
 				args = append(args, "-n -q 1")
 			} else {
-				args = append(args, "-q 2")
+				args = append(args, "-q 3")
+				args = append(args, "-e")
 			}
 
 			if functype == "tracert4" {
@@ -371,7 +376,7 @@ func webServer(logger *log.Logger) *http.Server {
 
 			if term == "" {
 				w.Header().Set("content-type", "text/html; charset=utf-8")
-				fmt.Fprintf(w, "<style>body {background-color: #2d3436}</style><pre style='white-space: pre-line;  font-size: 16px; font-family: Arial, Helvetica, sans-serif;  color: #dfe6e9'>")
+				fmt.Fprintf(w, iframeStyle)
 			}
 			args = append(args, host) // add host to arguments
 
