@@ -47,7 +47,7 @@ var (
 	*/
 	ipv6Regex   = `^(([0-9a-fA-F]{1,4}:){7,7}[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,7}:|([0-9a-fA-F]{1,4}:){1,6}:[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,5}(:[0-9a-fA-F]{1,4}){1,2}|([0-9a-fA-F]{1,4}:){1,4}(:[0-9a-fA-F]{1,4}){1,3}|([0-9a-fA-F]{1,4}:){1,3}(:[0-9a-fA-F]{1,4}){1,4}|([0-9a-fA-F]{1,4}:){1,2}(:[0-9a-fA-F]{1,4}){1,5}|[0-9a-fA-F]{1,4}:((:[0-9a-fA-F]{1,4}){1,6})|:((:[0-9a-fA-F]{1,4}){1,7}|:)|fe80:(:[0-9a-fA-F]{0,4}){0,4}%[0-9a-zA-Z]{1,}|::(ffff(:0{1,4}){0,1}:){0,1}((25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])\.){3,3}(25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])|([0-9a-fA-F]{1,4}:){1,4}:((25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])\.){3,3}(25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9]))$`
 	ipv4Regex   = `^(((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)(\.|$)){4})`
-	domainRegex = `^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9][a-z0-9-]{0,61}[a-z0-9]$`
+	domainRegex = `^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9][a-z0-9-]{0,61}[a-z]$`
 	portRegex   = "^((6553[0-5])|(655[0-2][0-9])|(65[0-4][0-9]{2})|(6[0-4][0-9]{3})|([1-5][0-9]{4})|([1-9][0-9]{3})|([1-9][0-9]{2})|([1-9][0-9])|([1-9]))$"
 
 	//iframeStyle = "<pre style='white-space: pre-line; text-shadow: 3px 3px 4px #000; font-size: 20px; font-family: Arial, Helvetica, sans-serif;  color: #000'>"
@@ -91,25 +91,28 @@ func webServer(logger *log.Logger) *http.Server {
 		fmt.Fprintf(w, `<title="Looking Glass Server"/><h2>Error page `+fmt.Sprint(r.URL)+
 			` not found.</h2></br><p>Looking Glass Server. For more information, visit <a href="https://ahmetozer.org/">ahmetozer.org</a></p>`)
 	})
-
+	router.HandleFunc("/svCheck", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.WriteHeader(http.StatusOK)
+	})
 	// Get System Disk informations with linux util lsblk . // JSON
 	router.HandleFunc("/looking-glass-controller", func(w http.ResponseWriter, r *http.Request) {
 		/*
 			Get arguments from url
 		*/
-		functype := r.URL.Query().Get("type")
+		// All functions require host variable
 		host := r.URL.Query().Get("host")
-		nameserver := r.URL.Query().Get("nameserver")
-		scheme := r.URL.Query().Get("scheme")
-		port := r.URL.Query().Get("port")
-		id := r.URL.Query().Get("id")
-		mobile := r.URL.Query().Get("mobile")
-		term := r.URL.Query().Get("term")
+
 		setLiveOutputHeaders(w)
 
 		/*
 			Check host input
 		*/
+		if host == "" {
+			w.WriteHeader(http.StatusBadRequest)
+			fmt.Fprintf(w, "ERR: You have to define host.")
+			return
+		}
 		match, _ := regexp.MatchString(ipv4Regex+`|`+ipv6Regex+`|`+domainRegex, host)
 		if !match {
 			w.WriteHeader(http.StatusBadRequest)
@@ -120,24 +123,28 @@ func webServer(logger *log.Logger) *http.Server {
 		/*
 			Server functions
 		*/
-		switch functype {
-		case "icmp4", "icmp6", "icmp":
+		switch r.URL.Query().Get("funcType") {
+		case "icmp":
 
 			//cmd.Dir = "/empty/"
 			args := []string{"-l 3", "-c 5", "-i 0.3", "-s 64", "-t 64", "-W 1", "-q"}
-			if functype == "icmp4" {
+			switch r.URL.Query().Get("IPVersion") {
+			case "IPv4":
 				if !isMayIPv4(host) {
-					fmt.Fprintf(w, "{\"code\":\"FuncTypeMissMatch\"}")
+					fmt.Fprintf(w, "{\"code\":\"IPVersionMissMatch\"}")
 					return
 				}
 				args = append(args, "-4")
-			}
-			if functype == "icmp6" {
+			case "IPv6":
 				if !isMayIPv6(host) {
-					fmt.Fprintf(w, "{\"code\":\"FuncTypeMissMatch\"}")
+					fmt.Fprintf(w, "{\"code\":\"IPVersionMissMatch\"}")
 					return
 				}
 				args = append(args, "-6")
+			case "Default":
+			default:
+				fmt.Fprintf(w, "{\"code\":\"WrongIPVersion\"}")
+				return
 			}
 			args = append(args, host)
 			cmd := exec.Command("ping", args...)
@@ -147,7 +154,7 @@ func webServer(logger *log.Logger) *http.Server {
 			if err != nil { // If error occur on ping command.
 				// If given input type wich is IPv4 or IPv6 and run type is not match this error will be occur
 				if fmt.Sprint(err) == "exit status 2" {
-					fmt.Fprintf(w, "{\"code\":\"FuncTypeMissMatchExecuted\"}")
+					fmt.Fprintf(w, "{\"code\":\"funcTypeMissMatchExecuted\"}")
 					return
 				}
 				//	When the ping command cannot access the server, this error will be occur
@@ -177,13 +184,14 @@ func webServer(logger *log.Logger) *http.Server {
 				//fmt.Fprint(w, rttOutParsed[0]+"\n"+transmittedPacketCount+"\n"+recivedPacketCount+"\n"+packetLoss)
 
 				fmt.Fprint(w, `{"code":"OK", "rttmin":"`+rttOutParsed[0]+`", "rttavg":"`+rttOutParsed[1]+`", "rttmax":"`+rttOutParsed[2]+`", "mdev":"`+
-					rttOutParsed[3]+`", "packetloss":"`+packetLoss+`", "recivedPacketCount": "`+recivedPacketCount+`", "transmittedPacketCount":"`+transmittedPacketCount+`","functype":"`+functype+`"}`)
+					rttOutParsed[3]+`", "packetloss":"`+packetLoss+`", "recivedPacketCount": "`+recivedPacketCount+`", "transmittedPacketCount":"`+transmittedPacketCount+`"}`)
 
 				// To debug output
 				//fmt.Fprint(w, "\n=====================================================\n\n\n"+outString)
 			}
 			return
 		case "tcp":
+			port := r.URL.Query().Get("port")
 			if port == "" {
 				port = "443"
 			}
@@ -217,15 +225,17 @@ func webServer(logger *log.Logger) *http.Server {
 				fmt.Fprintf(w, `{ "code"="Down","err":"`+fmt.Sprint(err)+`" }`)
 				return
 			}
-			elaspedTime := time.Since(dialStartTime)
-			fmt.Fprintf(w, `{ "code"="ok","latency":"%d ms" }`, elaspedTime.Milliseconds())
+			elapsedTime := time.Since(dialStartTime)
+			fmt.Fprintf(w, `{ "code"="ok","latency":"%d ms" }`, elapsedTime.Milliseconds())
 			defer conn.Close()
 
 			return
-		case "webontrol":
-			if scheme == "" { // If scheme is not given, set to https
+		case "webcontrol":
+			scheme := r.URL.Query().Get("scheme")
+			if r.URL.Query().Get("scheme") == "" { // If scheme is not given, set to https
 				scheme = "https"
 			}
+			port := r.URL.Query().Get("port")
 			if port != "" {
 				if isPortValid(port) {
 					host = host + ":" + port
@@ -241,7 +251,7 @@ func webServer(logger *log.Logger) *http.Server {
 				} else { // Print the HTTP Status Code and Status Name
 					fmt.Fprintf(w, `{ "code":"`+http.StatusText(resp.StatusCode)+`" }`)
 				}
-				return
+				return // Go-lint = false err
 			} else {
 				fmt.Fprintf(w, `{ "code":"SchemeDoesNotMatchHTTPorHTTPS" }`)
 				return
@@ -252,7 +262,7 @@ func webServer(logger *log.Logger) *http.Server {
 			return
 		case "whois":
 			args := []string{host}
-			if term == "" {
+			if r.URL.Query().Get("term") == "" {
 				w.Header().Set("content-type", "text/html; charset=utf-8")
 				fmt.Fprintf(w, iframeStyle)
 			}
@@ -274,7 +284,8 @@ func webServer(logger *log.Logger) *http.Server {
 			return
 		case "nslookup":
 			args := []string{host}
-			if nameserver != "" {
+			if r.URL.Query().Get("nameserver") != "" {
+				nameserver := r.URL.Query().Get("nameserver")
 				match, _ := regexp.MatchString(ipv4Regex+`|`+ipv6Regex+`|`+domainRegex, nameserver)
 				if !match {
 					w.WriteHeader(http.StatusBadRequest)
@@ -283,7 +294,7 @@ func webServer(logger *log.Logger) *http.Server {
 				}
 				args = append(args, nameserver)
 			}
-			if term == "" {
+			if r.URL.Query().Get("term") == "" {
 				w.Header().Set("content-type", "text/html; charset=utf-8")
 				fmt.Fprintf(w, iframeStyle)
 			}
@@ -305,30 +316,34 @@ func webServer(logger *log.Logger) *http.Server {
 			/*************************
 			Live output for ping frame
 			**************************/
-		case "ping", "ping4", "ping6":
+		case "ping":
 
 			args := []string{"-c 10", "-i 0.2"}
 
-			if mobile == "1" { // No resolve domain names to reduce widht of ping output to shown in mobile in better
+			if r.URL.Query().Get("mobile") == "1" { // No resolve domain names to reduce widht of ping output to shown in mobile in better
 				args = append(args, "-n")
 			}
-			if functype == "ping4" {
+			switch r.URL.Query().Get("IPVersion") {
+			case "IPv4":
 				if !isMayIPv4(host) {
-					fmt.Fprintf(w, "{\"code\":\"FuncTypeMissMatch\"}")
+					fmt.Fprintf(w, "{\"code\":\"IPVersionMissMatch\"}")
 					return
 				}
 				args = append(args, "-4")
-			}
-			if functype == "ping6" {
+			case "IPv6":
 				if !isMayIPv6(host) {
-					fmt.Fprintf(w, "{\"code\":\"FuncTypeMissMatch\"}")
+					fmt.Fprintf(w, "{\"code\":\"IPVersionMissMatch\"}")
 					return
 				}
 				args = append(args, "-6")
+			case "Default":
+			default:
+				fmt.Fprintf(w, "{\"code\":\"WrongIPVersion\"}")
+				return
 			}
 
 			// If requests comes from iframe (not term), add style to iframe
-			if term == "" {
+			if r.URL.Query().Get("term") == "" {
 				w.Header().Set("content-type", "text/html; charset=utf-8")
 				fmt.Fprintf(w, iframeStyle)
 			}
@@ -350,31 +365,36 @@ func webServer(logger *log.Logger) *http.Server {
 			/****************************
 			Live output for tracert frame
 			*****************************/
-		case "tracert", "tracert4", "tracert6":
+		case "tracert":
 			args := []string{}
 
-			if mobile == "1" {
+			if r.URL.Query().Get("mobile") == "1" {
 				args = append(args, "-n -q 1")
 			} else {
 				args = append(args, "-q 3")
 				args = append(args, "-e")
 			}
 
-			if functype == "tracert4" {
+			switch r.URL.Query().Get("IPVersion") {
+			case "IPv4":
 				if !isMayIPv4(host) {
-					fmt.Fprintf(w, "{\"code\":\"FuncTypeMissMatch\"}")
+					fmt.Fprintf(w, "{\"code\":\"IPVersionMissMatch\"}")
 					return
 				}
 				args = append(args, "-4")
-			} else if functype == "tracert6" {
+			case "IPv6":
 				if !isMayIPv6(host) {
-					fmt.Fprintf(w, "{\"code\":\"FuncTypeMissMatch\"}")
+					fmt.Fprintf(w, "{\"code\":\"IPVersionMissMatch\"+}")
 					return
 				}
 				args = append(args, "-6")
+			case "Default":
+			default:
+				fmt.Fprintf(w, "{\"code\":\"WrongIPVersion\"}")
+				return
 			}
 
-			if term == "" {
+			if r.URL.Query().Get("term") == "" {
 				w.Header().Set("content-type", "text/html; charset=utf-8")
 				fmt.Fprintf(w, iframeStyle)
 			}
@@ -394,7 +414,12 @@ func webServer(logger *log.Logger) *http.Server {
 		default:
 			// if any unknown function name given.
 			w.WriteHeader(http.StatusNotFound)
-			fmt.Fprintf(w, "404 \n"+functype+host+nameserver+port+id+mobile+term)
+			// requestDump, err := httputil.DumpRequest(r, true)
+			// if err != nil {
+			// 	fmt.Println(err)
+			// }
+			// fmt.Fprintf(w, string(requestDump))
+			fmt.Fprintf(w, "Function "+r.URL.Query().Get("funcType")+" is not found")
 			return
 		}
 
@@ -422,4 +447,7 @@ func setLiveOutputHeaders(w http.ResponseWriter) {
 	w.Header().Set("Pragma", "public")
 	w.Header().Set("Cache-Control", "public, maxage=10, proxy-revalidate")
 	w.Header().Set("X-Accel-Buffering", "no")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Content-disposition", "filename='response.lg'")
+
 }
