@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"runtime"
+
 	//"log"
 	//"os/exec"
 	//"strconv"
@@ -74,6 +75,7 @@ func main() {
 	flag.Usage = func() {}
 
 	certCheck()
+	flag.Parse()
 
 	//args := flag.Args()
 	if *listenAddr == "" && *listenAddrhttp == "" {
@@ -81,7 +83,6 @@ func main() {
 		var tmpaddr = ":443"
 		listenAddr = &tmpaddr
 	}
-	flag.Parse()
 
 	logger := log.New(os.Stdout, "https: ", log.LstdFlags)
 	done := make(chan bool, 1)
