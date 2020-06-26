@@ -55,27 +55,47 @@ var (
 )
 
 func isMayIPv4(host string) bool {
-	match, _ := regexp.MatchString(ipv4Regex+`|`+domainRegex, host)
+	match, err := regexp.MatchString(ipv4Regex+`|`+domainRegex, host)
+	if err != nil {
+		fmt.Println(err)
+		return false
+	}
 	return match
 }
 
 func isMayIPv6(host string) bool {
-	match, _ := regexp.MatchString(ipv6Regex+`|`+domainRegex, host)
+	match, err := regexp.MatchString(ipv6Regex+`|`+domainRegex, host)
+	if err != nil {
+		fmt.Println(err)
+		return false
+	}
 	return match
 }
 
 func isHTTPURLScheme(scheme string) bool {
-	match, _ := regexp.MatchString(`^http$|^https$`, scheme)
+	match, err := regexp.MatchString(`^http$|^https$`, scheme)
+	if err != nil {
+		fmt.Println(err)
+		return false
+	}
 	return match
 }
 
 func isPortValid(port string) bool {
-	match, _ := regexp.MatchString(portRegex, port)
+	match, err := regexp.MatchString(portRegex, port)
+	if err != nil {
+		fmt.Println(err)
+		return false
+	}
 	return match
 }
 
 func isMayDomain(host string) bool {
-	match, _ := regexp.MatchString(domainRegex, host)
+	match, err := regexp.MatchString(domainRegex, host)
+	if err != nil {
+		fmt.Println(err)
+		return false
+	}
 	return match
 }
 
@@ -384,7 +404,7 @@ func webServer(logger *log.Logger) *http.Server {
 				args = append(args, "-4")
 			case "IPv6":
 				if !isMayIPv6(host) {
-					fmt.Fprintf(w, "{\"code\":\"IPVersionMissMatch\"+}")
+					fmt.Fprintf(w, "{\"code\":\"IPVersionMissMatch\"}")
 					return
 				}
 				args = append(args, "-6")
