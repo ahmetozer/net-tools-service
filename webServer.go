@@ -8,14 +8,8 @@ import (
 	"net/http"
 	"os/exec"
 	"regexp"
-	"time"
-
-	//	"os"
-	//"math/rand"
-	//"encoding/base64"
 	"strings"
-	//"bytes"
-	//"encoding/json"
+	"time"
 )
 
 // pass CMD output to HTTP
@@ -98,6 +92,8 @@ func isMayDomain(host string) bool {
 	}
 	return match
 }
+
+var limiter = newIPRateLimiter(1, 1)
 
 func webServer(logger *log.Logger) *http.Server {
 
@@ -271,11 +267,10 @@ func webServer(logger *log.Logger) *http.Server {
 				} else { // Print the HTTP Status Code and Status Name
 					fmt.Fprintf(w, `{ "code":"`+http.StatusText(resp.StatusCode)+`" }`)
 				}
-				return // Go-lint = false err
 			} else {
 				fmt.Fprintf(w, `{ "code":"SchemeDoesNotMatchHTTPorHTTPS" }`)
-				return
 			}
+			return
 		case "time":
 			date := time.Now()
 			fmt.Fprintf(w, `{ "time":"`+date.Format("15:04:05")+`","date":"`+date.Format("01/02/2006")+`" }`)
@@ -449,11 +444,11 @@ func webServer(logger *log.Logger) *http.Server {
 	return &http.Server{
 
 		Addr:     *listenAddr,
-		Handler:  router,
+		Handler:  limitMiddleware(router),
 		ErrorLog: logger,
 		/* Close sockets */
-		ReadTimeout:  5 * time.Second,
-		WriteTimeout: 60 * time.Second,
+		ReadTimeout:  5 * time.Second,  // Input Time Out
+		WriteTimeout: 60 * time.Second, // Output Time Out
 		//IdleTimeout:  15 * time.Second,
 	}
 }
