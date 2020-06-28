@@ -31,6 +31,8 @@ var (
 	ecdsaCurve = flag.String("ecdsa-curve", "", "ECDSA curve to use to generate a key. Valid values are P224, P256 (recommended), P384, P521")
 	ed25519Key = flag.Bool("ed25519", false, "Generate an Ed25519 key")
 	listenAddr = flag.String("listen-addr", "", "Server listen address")
+	configURL  = flag.String("config-url", "", "Configuration url for this server")
+	svLoc      = flag.String("svloc", "", "indicate this server name")
 
 	listenAddrhttp = flag.String("enable-http", "", "Server listen address for http")
 	///hostname string
@@ -83,6 +85,7 @@ func main() {
 		var tmpaddr = ":443"
 		listenAddr = &tmpaddr
 	}
+	lgServerConfigListLoad(*configURL, *svLoc)
 
 	logger := log.New(os.Stdout, "https: ", log.LstdFlags)
 	done := make(chan bool, 1)
