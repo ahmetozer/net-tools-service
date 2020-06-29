@@ -133,11 +133,11 @@ func webServer(logger *log.Logger) *http.Server {
 		// Server conf checker
 		if serverConfig["IPv4"] != "enabled" && serverConfig["IPv6"] != "enabled" {
 			w.WriteHeader(http.StatusNotAcceptable)
-			fmt.Fprintf(w, "This server does not have a IPv4 and IPv6 connection, so this server is disabled.")
+			fmt.Fprintf(w, `{"code":"NotAcceptable","err":This server does not have a IPv4 and IPv6 connection, so this server is disabled."`)
 			return
 		}
 
-		// Tracert, ping and ICMP needs to be check connecting IP version
+		// All functions to be check connecting IP version except time,whois,nslookup
 		switch r.URL.Query().Get("funcType") {
 		case // IPversion control not required services
 			"time",
@@ -147,17 +147,23 @@ func webServer(logger *log.Logger) *http.Server {
 			if serverConfig["IPv4"] == "enabled" && serverConfig["IPv6"] != "enabled" {
 				if r.URL.Query().Get("IPVersion") != "IPv4" {
 					w.WriteHeader(http.StatusNotAcceptable)
-					fmt.Fprintf(w, "This server only allow IPv4 requests")
+					fmt.Fprintf(w, `{"code":"NotAcceptable","err":"This server only allow IPv4 requests"}`)
 					return
 				}
 			}
 			if serverConfig["IPv6"] == "enabled" && serverConfig["IPv4"] != "enabled" {
 				if r.URL.Query().Get("IPVersion") != "IPv6" {
 					w.WriteHeader(http.StatusNotAcceptable)
-					fmt.Fprintf(w, "This server only allow IPv6 requests")
+					fmt.Fprintf(w, `{"code":"NotAcceptable","err":"This server only allow IPv6 requests"}`)
 					return
 				}
 			}
+
+		}
+		if serverConfig[r.URL.Query().Get("funcType")] != "enabled" {
+			w.WriteHeader(http.StatusForbidden)
+			fmt.Fprintf(w, `{"code":"Forbidden","err":"This function is disabled"`)
+			return
 
 		}
 
@@ -172,13 +178,13 @@ func webServer(logger *log.Logger) *http.Server {
 		*/
 		if host == "" {
 			w.WriteHeader(http.StatusBadRequest)
-			fmt.Fprintf(w, "ERR: You have to define host.")
+			fmt.Fprintf(w, `"{"code":"BadRequest","err":"You have to define host."`)
 			return
 		}
 		match, _ := regexp.MatchString(ipv4Regex+`|`+ipv6Regex+`|`+domainRegex, host)
 		if !match {
 			w.WriteHeader(http.StatusBadRequest)
-			fmt.Fprintf(w, "ERR: Host is not IPv4, IPv6 or domain")
+			fmt.Fprintf(w, `"{"code":"BadRequest","err":"Host is not IPv4, IPv6 or domain"`)
 			return
 		}
 
