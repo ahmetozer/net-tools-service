@@ -173,7 +173,7 @@ func webServer(logger *log.Logger) *http.Server {
 		}
 		if serverConfig[r.URL.Query().Get("funcType")] != "enabled" {
 			w.WriteHeader(http.StatusForbidden)
-			fmt.Fprintf(w, `{"code":"Forbidden","err":"This function is disabled"`)
+			fmt.Fprintf(w, `{"code":"Forbidden","err":"This function is disabled"}`)
 			return
 
 		}
