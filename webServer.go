@@ -220,7 +220,7 @@ func webServer(logger *log.Logger) *http.Server {
 					return
 				}
 				args = append(args, "-6")
-			case "Default":
+			case "IPvDefault":
 			default:
 				fmt.Fprintf(w, "{\"code\":\"WrongIPVersion\"}")
 				return
@@ -438,7 +438,7 @@ func webServer(logger *log.Logger) *http.Server {
 					return
 				}
 				args = append(args, "-6")
-			case "Default":
+			case "IPvDefault":
 			default:
 				fmt.Fprintf(w, "{\"code\":\"WrongIPVersion\"}")
 				return
@@ -490,7 +490,7 @@ func webServer(logger *log.Logger) *http.Server {
 					return
 				}
 				args = append(args, "-6")
-			case "Default":
+			case "IPvDefault":
 			default:
 				fmt.Fprintf(w, "{\"code\":\"WrongIPVersion\"}")
 				return
