@@ -131,6 +131,17 @@ func webServer(logger *log.Logger) *http.Server {
 	// Get System Disk informations with linux util lsblk . // JSON
 	router.HandleFunc("/looking-glass-controller", func(w http.ResponseWriter, r *http.Request) {
 		// Server conf checker
+		var httpScheme string
+		if r.TLS == nil {
+			httpScheme = "http"
+		} else {
+			httpScheme = "https"
+		}
+		if httpScheme+"://"+r.Host != serverConfig["ThisServerURL"] {
+			w.WriteHeader(http.StatusNotAcceptable)
+			fmt.Fprintf(w, `{"code":"NotAcceptable","err":Request Domain is different", "requestDomain": "%s"}`, httpScheme+"://"+r.Host)
+			return
+		}
 		if serverConfig["IPv4"] != "enabled" && serverConfig["IPv6"] != "enabled" {
 			w.WriteHeader(http.StatusNotAcceptable)
 			fmt.Fprintf(w, `{"code":"NotAcceptable","err":This server does not have a IPv4 and IPv6 connection, so this server is disabled."`)
