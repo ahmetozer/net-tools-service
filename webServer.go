@@ -57,8 +57,25 @@ func isMayIPv4(host string) bool {
 	return match
 }
 
+func isMayOnlyIPv4(host string) bool {
+	match, err := regexp.MatchString(ipv4Regex, host)
+	if err != nil {
+		fmt.Println(err)
+		return false
+	}
+	return match
+}
+
 func isMayIPv6(host string) bool {
 	match, err := regexp.MatchString(ipv6Regex+`|`+domainRegex, host)
+	if err != nil {
+		fmt.Println(err)
+		return false
+	}
+	return match
+}
+func isMayOnlyIPv6(host string) bool {
+	match, err := regexp.MatchString(ipv6Regex, host)
 	if err != nil {
 		fmt.Println(err)
 		return false
@@ -113,10 +130,39 @@ func webServer(logger *log.Logger) *http.Server {
 	})
 	// Get System Disk informations with linux util lsblk . // JSON
 	router.HandleFunc("/looking-glass-controller", func(w http.ResponseWriter, r *http.Request) {
-		/*
-			Get arguments from url
-		*/
+		// Server conf checker
+		if serverConfig["IPv4"] != "enabled" && serverConfig["IPv6"] != "enabled" {
+			w.WriteHeader(http.StatusNotAcceptable)
+			fmt.Fprintf(w, "This server does not have a IPv4 and IPv6 connection, so this server is disabled.")
+			return
+		}
+
+		// Tracert, ping and ICMP needs to be check connecting IP version
+		switch r.URL.Query().Get("funcType") {
+		case // IPversion control not required services
+			"time",
+			"whois",
+			"nslookup":
+		default:
+			if serverConfig["IPv4"] == "enabled" && serverConfig["IPv6"] != "enabled" {
+				if r.URL.Query().Get("IPVersion") != "IPv4" {
+					w.WriteHeader(http.StatusNotAcceptable)
+					fmt.Fprintf(w, "This server only allow IPv4 requests")
+					return
+				}
+			}
+			if serverConfig["IPv6"] == "enabled" && serverConfig["IPv4"] != "enabled" {
+				if r.URL.Query().Get("IPVersion") != "IPv6" {
+					w.WriteHeader(http.StatusNotAcceptable)
+					fmt.Fprintf(w, "This server only allow IPv6 requests")
+					return
+				}
+			}
+
+		}
+
 		// All functions require host variable
+
 		host := r.URL.Query().Get("host")
 
 		setLiveOutputHeaders(w)
@@ -220,7 +266,31 @@ func webServer(logger *log.Logger) *http.Server {
 					fmt.Fprintf(w, `{ "code":"DomainResolveErr", "err":"%s" }`, err)
 					return
 				}
-				host = ips[0].String()
+
+				switch r.URL.Query().Get("IPVersion") {
+				case "IPv4":
+					for _, ip := range ips {
+						host = ip.String()
+						if isMayOnlyIPv4(host) {
+							break
+						}
+					}
+					if !isMayOnlyIPv4(host) {
+						fmt.Fprintf(w, `{ "code":"DomainResolveErr", "err":"DomainDoesNotHaveAIPv4" }`)
+						return
+					}
+				case "IPv6":
+					for _, ip := range ips {
+						host = ip.String()
+						if isMayOnlyIPv6(host) {
+							break
+						}
+					}
+					if !isMayOnlyIPv6(host) {
+						fmt.Fprintf(w, `{ "code":"DomainResolveErr", "err":"DomainDoesNotHaveAIPv6" }`)
+						return
+					}
+				}
 			}
 
 			if isMayIPv6(host) { // Add brackets if IPv6
