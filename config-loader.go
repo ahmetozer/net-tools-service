@@ -71,7 +71,7 @@ func lgServerConfigListLoad(configURL string, svLoc string) {
 				}
 
 			}
-			temp = temp + ".serverConfig"
+			temp = temp + ".ServerConfig"
 			temp = strings.Replace(temp, ".", "", 1)
 			//configLogger.Println("\nCurrent loc " + temp)
 			if temp != "" {
@@ -85,5 +85,8 @@ func lgServerConfigListLoad(configURL string, svLoc string) {
 
 		}
 		configLogger.Println("Setting loaded for " + svLoc)
+		for k, v := range serverConfig {
+			configLogger.Println(k, v)
+		}
 	}
 }
