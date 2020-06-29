@@ -1,7 +1,7 @@
 FROM golang
-WORKDIR /src
-COPY . /src
-RUN go get .
+WORKDIR /go/src/github.com/ahmetozer/looking-glass-controller
+COPY . /go/src/github.com/ahmetozer/looking-glass-controller
+RUN go get ./..
 RUN CGO_ENABLED=0 go build -o /bin/looking-glass-controller
 #RUN go build -o /bin/looking-glass-controller
 
