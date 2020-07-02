@@ -422,7 +422,7 @@ func webServer(logger *log.Logger) *http.Server {
 
 			args := []string{"-c 10", "-i 0.2"}
 
-			if r.URL.Query().Get("mobile") == "1" { // No resolve domain names to reduce widht of ping output to shown in mobile in better
+			if r.URL.Query().Get("isMobile") == "1" { // No resolve domain names to reduce widht of ping output to shown in mobile in better
 				args = append(args, "-n")
 			}
 			switch r.URL.Query().Get("IPVersion") {
@@ -470,8 +470,8 @@ func webServer(logger *log.Logger) *http.Server {
 		case "tracert":
 			args := []string{}
 
-			if r.URL.Query().Get("mobile") == "1" {
-				args = append(args, "-n -q 1")
+			if r.URL.Query().Get("isMobile") == "1" {
+				args = append(args, "-n", "-q 1")
 			} else {
 				args = append(args, "-q 3")
 				args = append(args, "-e")
