@@ -12,6 +12,7 @@ import (
 	"context"
 	"log"
 	"net/http"
+	"net/url"
 	"os/exec"
 	"os/signal"
 	"os/user"
@@ -39,21 +40,26 @@ var (
 )
 
 func main() {
+
+	// Check is this program run in linux
 	if runtime.GOOS != "linux" {
 		fmt.Println("This program is only works on linux devices")
 		return
 	}
 
+	// Get Current Username
 	user, err := user.Current()
 	if err != nil {
 		panic(err)
 	}
+	// For security reason this program have to run in www-data user.
 	if user.Name != "www-data" {
 		fmt.Printf("To secure your system, please run this program as www-data."+
 			"Current user %v \n", user.Name)
 		os.Exit(3)
 	}
 
+	// Check the required programs
 	requiredPrograms := []string{"ping", "traceroute", "whois", "nslookup"}
 	var requiredapps [4]bool
 	for i, s := range requiredPrograms {
@@ -76,7 +82,10 @@ func main() {
 	flag.Bool("h", false, "")
 	flag.Usage = func() {}
 
+	// Check the Web Server Certificates. If its not available create self cert.
 	certCheck()
+
+	// Parse the flags
 	flag.Parse()
 
 	//args := flag.Args()
@@ -85,8 +94,17 @@ func main() {
 		var tmpaddr = ":443"
 		listenAddr = &tmpaddr
 	}
+	// Get the configs from web server.
 	lgServerConfigListLoad(*configURL, *svLoc)
 
+	// Get frontend server address from config url
+	expectedRefererURL, err := url.Parse(*configURL)
+	if err != nil {
+		panic(err)
+	}
+	serverConfig["expectedRefererURL"] = expectedRefererURL.Scheme + "://" + expectedRefererURL.Host
+
+	// Create a logger for https server
 	logger := log.New(os.Stdout, "https: ", log.LstdFlags)
 	done := make(chan bool, 1)
 	quit := make(chan os.Signal, 1)
