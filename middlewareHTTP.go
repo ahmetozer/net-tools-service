@@ -42,6 +42,8 @@ func middlewareHTTPHandler(next http.Handler) http.Handler {
 			http.Error(w, http.StatusText(http.StatusTooManyRequests), http.StatusTooManyRequests)
 			return
 		}
+		w.Header().Set("CONTENT-SECURITY-POLICY", "default-src 'none'; style-src 'unsafe-inline';base-uri 'self';")
+		w.Header().Set("Access-Control-Allow-Origin", serverConfig["expectedRefererURL"])
 
 		next.ServeHTTP(w, r)
 	})

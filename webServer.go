@@ -539,6 +539,4 @@ func setLiveOutputHeaders(w http.ResponseWriter) {
 	w.Header().Set("Pragma", "public")
 	w.Header().Set("Cache-Control", "public, maxage=10, proxy-revalidate")
 	w.Header().Set("X-Accel-Buffering", "no")
-	w.Header().Set("Access-Control-Allow-Origin", "*")
-
 }
