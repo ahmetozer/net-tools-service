@@ -29,7 +29,11 @@ func lgServerConfigListLoad(configURL string, svLoc string) {
 	serverConfig["speedtest"] = "enabled"
 
 	if configURL == "" {
-		configLogger.Println("Config url is not defined. please define with --config-url")
+		configLogger.Fatalln("Config url is not defined. please define with --config-url")
+	} else {
+		if strings.Contains(configURL, "--svloc") {
+			configLogger.Fatalln("Config url is is empty. Please define with --config-url https://yoururl/server.json")
+		}
 	}
 	if svLoc == "" {
 		configLogger.Println("server Location is not defined. Please define with --svloc")
