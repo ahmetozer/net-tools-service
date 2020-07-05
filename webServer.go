@@ -14,7 +14,7 @@ import (
 
 // pass CMD output to HTTP
 func writeCmdOutput(res http.ResponseWriter, pipeReader *io.PipeReader) {
-	var BUFLEN = 4096 // for
+	var BUFLEN = 1024 // for
 	buffer := make([]byte, BUFLEN)
 	for {
 		n, err := pipeReader.Read(buffer)
