@@ -30,8 +30,8 @@ There is a few options to configure your software
 - `--listenAddr` You can manage listen port and listen ip addres with this argumant.  
 Ex. `--listenAddr 0.0.0.0:443`
 
-- `--configURL` System loads server config`s from frontend server which is example.com/server.json. This is prevent any front-end and back-end conflict.  
-Ex.`--configURL https://lg.ahmetozer.org/server.json`
+- `--configURL` System loads server configs from frontend server which is example.com/server.json. This is prevent any front-end and back-end conflict.  
+Ex. ` --configURL https://lg.ahmetozer.org/server.json `
 
 - `--svLoc` The system identifies itself with this argument  
 Ex. `--svLoc Amsterdam.Amsterdam1`
