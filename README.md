@@ -30,15 +30,15 @@ There is a few options to configure your software
 - `--listenAddr` You can manage listen port and listen ip addres with this argumant.  
 Ex. `--listenAddr 0.0.0.0:443`
 
-- `--configURL` System loads server configs from frontend server which is example.com/server.json. This is prevent any front-end and back-end conflict.  
-Ex. ` --configURL https://lg.ahmetozer.org/server.json `
+- `--config-url` System loads server configs from frontend server which is example.com/server.json. This is prevent any front-end and back-end conflict.  
+Ex. ` --config-url https://lg.ahmetozer.org/server.json `
 
-- `--svLoc` The system identifies itself with this argument  
+- `--svloc` The system identifies itself with this argument  
 Ex. `--svLoc Amsterdam.Amsterdam1`
 
 - You can use also own SSL certificate to serve HTTPS server with verified certificate. To use own certificate mount your certificates to /cert/ folder in container.  
  Ex.  
-  `docker run -it -p 443:443 --mount type=bind,source="/etc/letsencrypt/live/example.com/fullchain.pem",target=/cert/cert.pem,readonly  --mount type=bind,source="/etc/letsencrypt/live/example.com/privkey.pem",target=/cert/key.pem,readonly ahmetozer.org/looking-glass-service --configURL https://lg.ahmetozer.org/server.json --svLoc Amsterdam.Amsterdam1 `
+  `docker run -it -p 443:443 --mount type=bind,source="/etc/letsencrypt/live/example.com/fullchain.pem",target=/cert/cert.pem,readonly  --mount type=bind,source="/etc/letsencrypt/live/example.com/privkey.pem",target=/cert/key.pem,readonly ahmetozer.org/looking-glass-service --config-url https://lg.ahmetozer.org/server.json --svloc Netherland.Amsterdam2`
 
 #### Serving to Global
 
