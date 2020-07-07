@@ -60,18 +60,18 @@ func main() {
 	}
 
 	// Check the required programs
-	requiredPrograms := []string{"ping", "traceroute", "whois", "nslookup"}
-	var requiredapps [4]bool
+	requiredPrograms := []string{"ping", "traceroute", "whois", "nslookup", "curl"}
+	//var requiredapps [5]bool
 	for i, s := range requiredPrograms {
 		// Get path of required programs
 		_, err := exec.LookPath(s)
 		if err == nil {
 			//fmt.Printf("Required program %v %v found at %v\n", i+1, s, path)
-			requiredapps[i] = true //save to array
+			//requiredapps[i] = true //save to array
 		} else {
 			fmt.Printf("Required program %v : %v cannot found.\n", i+1, s)
-			requiredapps[i] = false
-			if i < 4 { //sh and df is must required. If is not found in software than exit.
+			//requiredapps[i] = false
+			if i < 5 { //sh and df is must required. If is not found in software than exit.
 				fmt.Printf("Please install %v and run this program again\n", s)
 				os.Exit(3)
 			}

@@ -503,6 +503,59 @@ func webServer(logger *log.Logger) *http.Server {
 			cmd.Run()
 			pipeWriter.Close()
 			return
+		case "curl":
+			args := []string{"-iH", "--max-time", "45"} //{"-iH ", "'Accept: text/plain'", "--max-time 10", "--limit-rate 5K"} // Webserver already time out in 60 second. So max time cant be bigger than 60
+
+			switch r.URL.Query().Get("IPVersion") {
+			case "IPv4":
+				if !isMayIPv4(host) {
+					fmt.Fprintf(w, "{\"code\":\"IPVersionMissMatch\"}")
+					return
+				}
+				args = append(args, "-4")
+			case "IPv6":
+				if !isMayIPv6(host) {
+					fmt.Fprintf(w, "{\"code\":\"IPVersionMissMatch\"}")
+					return
+				}
+				args = append(args, "-6")
+			case "IPvDefault":
+			default:
+				fmt.Fprintf(w, "{\"code\":\"WrongIPVersion\"}")
+				return
+			}
+			if isMayOnlyIPv6(host) { // Add brackets if IPv6
+				host = "[" + host + "]"
+			}
+			switch r.URL.Query().Get("reqScheme") {
+			case "https":
+				host = "https://" + host
+			case "http":
+				host = "http://" + host
+			default:
+				fmt.Fprintf(w, "{\"code\":\"WrongreqSchemeVersion\"}")
+				return
+			}
+
+			// If requests comes from iframe (not term), add style to iframe
+			if r.URL.Query().Get("term") == "" {
+				w.Header().Set("content-type", "text/html; charset=utf-8")
+				fmt.Fprintf(w, iframeStyle)
+			}
+
+			args = append(args, host) // add host to arguments
+			cmd := exec.Command("curl", args...)
+			// Organize pipelines
+			pipeIn, pipeWriter := io.Pipe()
+			cmd.Stdout = pipeWriter
+			cmd.Stderr = pipeWriter
+			// Pass to web output
+			go writeCmdOutput(w, pipeIn)
+
+			// Run commands
+			cmd.Run()
+			pipeWriter.Close()
+			return
 		default:
 			// if any unknown function name given.
 			w.WriteHeader(http.StatusNotFound)

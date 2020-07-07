@@ -17,16 +17,16 @@ var (
 func lgServerConfigListLoad(configURL string, svLoc string) {
 	configLogger := log.New(os.Stdout, "Config Loader: ", log.LstdFlags)
 	serverConfig = make(map[string]string)
-	serverConfig["whois"] = "enabled"
-	serverConfig["nslookup"] = "enabled"
-	serverConfig["ping"] = "enabled"
-	serverConfig["icmp"] = "enabled"
-	serverConfig["tracert"] = "enabled"
-	serverConfig["webcontrol"] = "enabled"
-	serverConfig["tcp"] = "enabled"
-	serverConfig["IPv4"] = "enabled"
-	serverConfig["IPv6"] = "enabled"
-	serverConfig["speedtest"] = "enabled"
+	serverConfig["whois"] = "disabled"
+	serverConfig["nslookup"] = "disabled"
+	serverConfig["ping"] = "disabled"
+	serverConfig["icmp"] = "disabled"
+	serverConfig["tracert"] = "disabled"
+	serverConfig["webcontrol"] = "disabled"
+	serverConfig["tcp"] = "disabled"
+	serverConfig["IPv4"] = "disabled"
+	serverConfig["IPv6"] = "disabled"
+	serverConfig["curl"] = "disabled"
 
 	if configURL == "" {
 		configLogger.Fatalln("Config url is not defined. please define with --config-url")
