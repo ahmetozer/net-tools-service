@@ -12,9 +12,15 @@ import (
 	"time"
 )
 
+func recoverFromAnywhere(Where string) {
+	if r := recover(); r != nil {
+		fmt.Println("Recovered from ", Where, r)
+	}
+}
+
 // pass CMD output to HTTP
 func writeCmdOutput(res http.ResponseWriter, pipeReader *io.PipeReader) {
-	var BUFLEN = 1024 // for
+	BUFLEN := 1024 // for
 	buffer := make([]byte, BUFLEN)
 	for {
 		n, err := pipeReader.Read(buffer)
@@ -25,7 +31,9 @@ func writeCmdOutput(res http.ResponseWriter, pipeReader *io.PipeReader) {
 
 		data := buffer[0:n]
 		res.Write(data)
-		if f, ok := res.(http.Flusher); ok {
+		f, ok := res.(http.Flusher)
+		if ok {
+			defer recoverFromAnywhere("Http Flush Panic")
 			f.Flush()
 		}
 		//reset buffer
