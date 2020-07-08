@@ -22,6 +22,7 @@ func recoverFromAnywhere(Where string) {
 func writeCmdOutput(res http.ResponseWriter, pipeReader *io.PipeReader) {
 	BUFLEN := 1024 // for
 	buffer := make([]byte, BUFLEN)
+	defer recoverFromAnywhere("Http Flush Panic")
 	for {
 		n, err := pipeReader.Read(buffer)
 		if err != nil {
@@ -33,9 +34,9 @@ func writeCmdOutput(res http.ResponseWriter, pipeReader *io.PipeReader) {
 		res.Write(data)
 		f, ok := res.(http.Flusher)
 		if ok {
-			defer recoverFromAnywhere("Http Flush Panic")
 			f.Flush()
 		}
+
 		//reset buffer
 		for i := 0; i < n; i++ {
 			buffer[i] = 0
@@ -512,7 +513,7 @@ func webServer(logger *log.Logger) *http.Server {
 			pipeWriter.Close()
 			return
 		case "curl":
-			args := []string{"-iH", "--max-time", "45"} //{"-iH ", "'Accept: text/plain'", "--max-time 10", "--limit-rate 5K"} // Webserver already time out in 60 second. So max time cant be bigger than 60
+			args := []string{"-I", "--max-time", "45", "--limit-rate", "5K"} //{"-iH","'Accept: text/plain'", "--max-time", "45", "--limit-rate", "5K"} // Webserver already time out in 60 second. So max time cant be bigger than 60
 
 			switch r.URL.Query().Get("IPVersion") {
 			case "IPv4":
