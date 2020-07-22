@@ -12,7 +12,6 @@ import (
 	"context"
 	"log"
 	"net/http"
-	"net/url"
 	"os/exec"
 	"os/signal"
 	"os/user"
@@ -37,6 +36,8 @@ var (
 
 	listenAddrhttp = flag.String("enable-http", "", "Server listen address for http")
 	///hostname string
+	allowedReferersConfig = flag.String("referers", "", "Allow multiple Referers")
+	allowedReferers []string
 )
 
 func main() {
@@ -97,12 +98,6 @@ func main() {
 	// Get the configs from web server.
 	lgServerConfigListLoad(*configURL, *svLoc)
 
-	// Get frontend server address from config url
-	expectedRefererURL, err := url.Parse(*configURL)
-	if err != nil {
-		panic(err)
-	}
-	serverConfig["expectedRefererURL"] = expectedRefererURL.Scheme + "://" + expectedRefererURL.Host
 
 	// Create a logger for https server
 	logger := log.New(os.Stdout, "https: ", log.LstdFlags)
@@ -169,3 +164,12 @@ func gracefullShutdown(server *http.Server, logger *log.Logger, quit <-chan os.S
 	}
 	close(done)
 }
+
+func contains(arr []string, str string) bool {
+	for _, a := range arr {
+	   if a == str {
+		  return true
+	   }
+	}
+	return false
+ }

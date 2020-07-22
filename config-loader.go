@@ -4,6 +4,7 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"strings"
 
@@ -40,7 +41,7 @@ func lgServerConfigListLoad(configURL string, svLoc string) {
 	}
 
 	if svLoc == "" || configURL == "" {
-		configLogger.Println("All settings Enabled.")
+		configLogger.Println("\033[1;31mAll settings Enabled.\033[0m")
 	} else {
 		resp, err := http.Get(configURL)
 		if err != nil {
@@ -92,5 +93,18 @@ func lgServerConfigListLoad(configURL string, svLoc string) {
 		for k, v := range serverConfig {
 			configLogger.Println(k, v)
 		}
+	}
+
+	// Get frontend server address from config url
+	parsedConfigURL, err := url.Parse(configURL)
+	if err != nil {
+		panic(err)
+	}
+	if *allowedReferersConfig == "" {
+		configLogger.Println("Referer Domain is not given, you can set with --referers. System is only allows incoming requests from ", parsedConfigURL.Host)
+		allowedReferers = []string{parsedConfigURL.Host} //parsedConfigURL.Host
+	} else {
+		allowedReferers = strings.Split(*allowedReferersConfig, ",")
+		configLogger.Println("Allowed referer domains ", allowedReferers)
 	}
 }

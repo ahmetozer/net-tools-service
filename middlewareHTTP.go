@@ -33,7 +33,7 @@ func middlewareHTTPHandler(next http.Handler) http.Handler {
 			return
 		}
 
-		if u.Scheme+"://"+u.Host != serverConfig["expectedRefererURL"] {
+		if contains(allowedReferers, u.Host) {
 			http.Error(w, http.StatusText(http.StatusNotAcceptable), http.StatusNotAcceptable)
 			return
 		}
@@ -43,7 +43,7 @@ func middlewareHTTPHandler(next http.Handler) http.Handler {
 			return
 		}
 		w.Header().Set("CONTENT-SECURITY-POLICY", "default-src 'none'; style-src 'unsafe-inline';base-uri 'self';")
-		w.Header().Set("Access-Control-Allow-Origin", serverConfig["expectedRefererURL"])
+		w.Header().Set("Access-Control-Allow-Origin", u.Host)
 
 		next.ServeHTTP(w, r)
 	})
