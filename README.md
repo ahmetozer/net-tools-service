@@ -1,21 +1,21 @@
-# Looking Glass Service
+# Net Tools Service
 
 This software is backend service for [Looking Glass](https://github.com/ahmetozer/looking-glass) software.
 
-Our network looking glass service is a small Golang based tool to server ping, traceroute, nslookup and whois tools.
+Our Net Tools Service is a small Golang based tool to server ping, traceroute, nslookup and whois tools.
 
-It is designed to run basic net tools securitly in containers to isolate from your server.
+It is designed to run basic net tools securely in containers to isolate from your server.
 
-#### Features 
+## Features
 
 - Automatic Self Certifacate Generation
 - Limit incoming requests (Rate Limit)
 - Execute some network tools (nslookup, ping, tracert, whois)
 - Live command output
-- Gracefull Shutdown
+- Gracefully Shutdown
 - Load Settings recursively from servers.json
 
-### Installation
+## Installation
 
 You can easily to deploy Looking Glass Service to your server with Docker.
 
@@ -23,11 +23,11 @@ You can easily to deploy Looking Glass Service to your server with Docker.
 docker run -it -p 443:443 ahmetozer.org/looking-glass-service --configURL https://lg.ahmetozer.org/server.json --svLoc Amsterdam.Amsterdam1
 ```
 
-#### Configuration
+## Configuration
 
 There is a few options to configure your software
 
-- `--listenAddr` You can manage listen port and listen ip addres with this argumant.  
+- `--listenAddr` You can manage listen port and listen ip address with this argument.  
 Ex. `--listenAddr 0.0.0.0:443`
 
 - `--config-url` System loads server configs from frontend server which is example.com/server.json. This is prevent any front-end and back-end conflict.  
@@ -40,13 +40,13 @@ Ex. `--svLoc Amsterdam.Amsterdam1`
  Ex.  
   `docker run -it -p 443:443 --mount type=bind,source="/etc/letsencrypt/live/example.com/fullchain.pem",target=/cert/cert.pem,readonly  --mount type=bind,source="/etc/letsencrypt/live/example.com/privkey.pem",target=/cert/key.pem,readonly ahmetozer.org/looking-glass-service --config-url https://lg.ahmetozer.org/server.json --svloc Netherland.Amsterdam2`
 
-#### Serving to Global
+### Serving to Global
 
 If you have a extra IPv4 or IPv6, you can bind ips to container and server directly.  
-If you dont have a extra IP, You can use nginx to serve multiple domains in one domain.  
+If you don't have a extra IP, You can use nginx to serve multiple domains in one domain.  
 Another way is bind container`s port to your server port. You can use any un used port expose service. Front end also support other ports.
 
-##### Some Information's About this Software
+## Some Information's About this Software
 
 - This program is only available for linux.
 
