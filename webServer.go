@@ -450,6 +450,54 @@ func webServer(logger *log.Logger) *http.Server {
 			cmd.Run()
 			pipeWriter.Close()
 			return
+		case "mtr":
+			args := []string{}
+			if r.URL.Query().Get("isMobile") == "1" {
+				args = append(args, "-n")
+				args = append(args, "-r")
+			} else {
+				args = append(args, "-e")
+				args = append(args, "-w")
+			}
+
+			switch r.URL.Query().Get("IPVersion") {
+			case "IPv4":
+				if !isMayIPv4(host) {
+					fmt.Fprintf(w, "{\"code\":\"IPVersionMissMatch\"}")
+					return
+				}
+				args = append(args, "-4")
+			case "IPv6":
+				if !isMayIPv6(host) {
+					fmt.Fprintf(w, "{\"code\":\"IPVersionMissMatch\"}")
+					return
+				}
+				args = append(args, "-6")
+			case "IPvDefault":
+			default:
+				fmt.Fprintf(w, "{\"code\":\"WrongIPVersion\"}")
+				return
+			}
+
+			if r.URL.Query().Get("term") == "" {
+				w.Header().Set("content-type", "text/html; charset=utf-8")
+				fmt.Fprintf(w, iframeStyle)
+			}
+			args = append(args, "-i 1")
+			args = append(args, "-c 5")
+			args = append(args, host) // add host to arguments
+
+			cmd := exec.Command("mtr", args...)
+			// Organize pipelines
+			pipeIn, pipeWriter := io.Pipe()
+			cmd.Stdout = pipeWriter
+			cmd.Stderr = pipeWriter
+			// Pass to web output
+			go writeCmdOutput(w, pipeIn) // live output
+			// Run command
+			cmd.Run()
+			pipeWriter.Close()
+			return
 		case "curl":
 			args := []string{"-I", "--max-time", "45", "--limit-rate", "5K"} //{"-iH","'Accept: text/plain'", "--max-time", "45", "--limit-rate", "5K"} // Webserver already time out in 60 second. So max time cant be bigger than 60
 

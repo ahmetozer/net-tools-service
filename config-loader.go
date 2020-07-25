@@ -28,6 +28,7 @@ func lgServerConfigListLoad(configURL string, svLoc string) {
 	serverConfig["IPv4"] = "disabled"
 	serverConfig["IPv6"] = "disabled"
 	serverConfig["curl"] = "disabled"
+	serverConfig["mtr"] = "enabled"
 	serverConfig["referrers"] = ""
 
 	// Control the Config URL is defined
@@ -98,26 +99,24 @@ func lgServerConfigListLoad(configURL string, svLoc string) {
 			}
 
 		}
+		// Get frontend server address from config url
+
+		if serverConfig["referrers"] == "" {
+			parsedConfigURL, err := url.Parse(configURL)
+			if err != nil {
+				panic(err)
+			}
+			configLogger.Println("Referer Domain is not given, you can set with --referrers. System is only allows incoming requests from ", parsedConfigURL.Host)
+			allowedreferrers = []string{parsedConfigURL.Host} //parsedConfigURL.Host
+		} else {
+			allowedreferrers = strings.Split(serverConfig["referrers"], ",")
+		}
+
 		// Print everthing is successfully
 		configLogger.Println("Setting loaded for " + svLoc)
 		for k, v := range serverConfig {
-			if k != "referrers" {
-				configLogger.Println(k+":", v)
-			}
+			configLogger.Println(k+":", v)
 		}
 	}
 
-	// Get frontend server address from config url
-
-	if serverConfig["referrers"] == "" {
-		parsedConfigURL, err := url.Parse(configURL)
-		if err != nil {
-			panic(err)
-		}
-		configLogger.Println("Referer Domain is not given, you can set with --referrers. System is only allows incoming requests from ", parsedConfigURL.Host)
-		allowedreferrers = []string{parsedConfigURL.Host} //parsedConfigURL.Host
-	} else {
-		allowedreferrers = strings.Split(serverConfig["referrers"], ",")
-		configLogger.Println("Allowed referer domains ", allowedreferrers)
-	}
 }

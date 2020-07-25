@@ -60,7 +60,7 @@ func main() {
 	}
 
 	// Check the required programs
-	requiredPrograms := []string{"ping", "traceroute", "whois", "nslookup", "curl"}
+	requiredPrograms := []string{"ping", "traceroute", "whois", "nslookup", "curl", "mtr"}
 	//var requiredapps [5]bool
 	for i, s := range requiredPrograms {
 		// Get path of required programs
@@ -71,7 +71,7 @@ func main() {
 		} else {
 			fmt.Printf("Required program %v : %v cannot found.\n", i+1, s)
 			//requiredapps[i] = false
-			if i < 5 { //sh and df is must required. If is not found in software than exit.
+			if i < len(requiredPrograms) { //sh and df is must required. If is not found in software than exit.
 				fmt.Printf("Please install %v and run this program again\n", s)
 				os.Exit(3)
 			}
