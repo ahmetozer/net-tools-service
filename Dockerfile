@@ -12,7 +12,7 @@ RUN CGO_ENABLED=0 go build -o /bin/net-tools-service
 # Switch to server ENV
 FROM ubuntu
 # Get all required packages
-RUN export DEBIAN_FRONTEND=noninteractive; apt update; apt install iputils-ping traceroute dnsutils whois ca-certificates curl mtr-tiny --no-install-recommends -y ; apt clean;apt autoclean
+RUN export DEBIAN_FRONTEND=noninteractive; apt update; apt install iputils-ping traceroute dnsutils whois ca-certificates curl mtr-tiny libcap2-bin --no-install-recommends -y ; apt clean;apt autoclean
 
 # COPY Binary and service file
 COPY --from=0 /bin/net-tools-service        /bin/net-tools-service
