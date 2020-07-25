@@ -36,8 +36,7 @@ var (
 
 	listenAddrhttp = flag.String("enable-http", "", "Server listen address for http")
 	///hostname string
-	allowedReferersConfig = flag.String("referers", "", "Allow multiple Referers")
-	allowedReferers []string
+	allowedreferrers []string
 )
 
 func main() {
@@ -91,13 +90,12 @@ func main() {
 
 	//args := flag.Args()
 	if *listenAddr == "" && *listenAddrhttp == "" {
-		fmt.Println("no http or https listen address given")
+		fmt.Println("No http or https listen address given. HTTPS is used by default.")
 		var tmpaddr = ":443"
 		listenAddr = &tmpaddr
 	}
 	// Get the configs from web server.
 	lgServerConfigListLoad(*configURL, *svLoc)
-
 
 	// Create a logger for https server
 	logger := log.New(os.Stdout, "https: ", log.LstdFlags)
@@ -119,7 +117,7 @@ func main() {
 var help = `
 it will be written
 Read more:
-https://github.com/ahmetozer/looking-glass-controller
+https://github.com/ahmetozer/net-tools-service
 `
 
 func certCheck() {
@@ -167,9 +165,9 @@ func gracefullShutdown(server *http.Server, logger *log.Logger, quit <-chan os.S
 
 func contains(arr []string, str string) bool {
 	for _, a := range arr {
-	   if a == str {
-		  return true
-	   }
+		if a == str {
+			return true
+		}
 	}
 	return false
- }
+}

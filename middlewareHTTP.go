@@ -44,7 +44,7 @@ func middlewareHTTPHandler(next http.Handler) http.Handler {
 			return
 		}
 		// Check is referer in list.
-		if !contains(allowedReferers, u.Host) {
+		if !contains(allowedreferrers, u.Host) {
 			w.WriteHeader(http.StatusNotAcceptable)
 			fmt.Fprintf(w, `{"code":"NotAcceptable","err":"Referrer is not allowed", "referrer": "%s"}`, u.Host)
 			return
