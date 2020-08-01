@@ -1,4 +1,4 @@
-FROM golang
+FROM ahmetozer/golang
 WORKDIR /go/src/github.com/ahmetozer/net-tools-service
 COPY . .
 
