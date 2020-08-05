@@ -2,18 +2,19 @@
 
 This software is backend service for [Looking Glass](https://github.com/ahmetozer/looking-glass) software.
 
-Our Net Tools Service is a small Golang based tool to server ping, traceroute, nslookup and whois tools.
+Our Net Tools Service is a small Golang based tool to server ping, traceroute, nslookup, mtr, curl and whois tools.
 
-It is designed to run basic net tools securely in containers to isolate from your server.
+It is designed to run basic net tools securely in containers.
 
 ## Features
 
-- Automatic Self Certifacate Generation
+- Automatic Self Certificate Generation
 - Limit incoming requests (Rate Limit)
-- Execute some network tools (nslookup, ping, tracert, whois)
+- Execute some network tools (nslookup, ping, tracert, whois, curl, mtr)
 - Live command output
 - Gracefully Shutdown
-- Load Settings recursively from servers.json
+- Load Settings recursively from remote server with servers.json
+
 
 ## Installation
 
@@ -46,12 +47,17 @@ If you have a extra IPv4 or IPv6, you can bind ips to container and server direc
 If you don't have a extra IP, You can use nginx to serve multiple domains in one domain.  
 Another way is bind container`s port to your server port. You can use any un used port expose service. Front end also support other ports.
 
+### server.json
+
+For server.json configuration please visit [https://github.com/ahmetozer/looking-glass#serverjson](https://github.com/ahmetozer/looking-glass#serverjson).
+
 ## Some Information's About this Software
 
 - This program is only available for linux.
 
 - Program is only executable in www-data user. (Prevent any security issue)
 
-- If you use outside of container you have install "ping", "traceroute", "whois", "nslookup" commands to your server.
+- If you use outside of container you have to install "ping", "traceroute", "whois", "nslookup", "mtr", "curl" into to your server.
 
-- You can`t separate server.json and WEBUI, If the given config url is different from WEBUI/server.json Program automatically block request to preventing Cross-Origin.
+- System is restrictive to better security. Please be check frontend website is added to referrers,
+other wise frontend requests is blocked. Also be sure `Url` is right. System is automatically blocks other domains.
