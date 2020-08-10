@@ -52,6 +52,7 @@ var (
 	ipv4Regex   = `^(((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)(\.|$)){4})`
 	domainRegex = `^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9][a-z0-9-]{0,61}[a-z]$`
 	portRegex   = "^((6553[0-5])|(655[0-2][0-9])|(65[0-4][0-9]{2})|(6[0-4][0-9]{3})|([1-5][0-9]{4})|([1-9][0-9]{3})|([1-9][0-9]{2})|([1-9][0-9])|([1-9]))$"
+	asnRegex    = `^(AS|as)?([1-5]\d{4}|[1-9]\d{0,3}|6[0-4]\d{3}|65[0-4]\d{2}|655[0-2]\d|6553[0-5])(\.([1-5]\d{4}|[1-9]\d{0,3}|6[0-4]\d{3}|65[0-4]\d{2}|655[0-2]\d|6553[0-5]|0))?$`
 
 	//iframeStyle = "<pre style='white-space: pre-line; text-shadow: 3px 3px 4px #000; font-size: 20px; font-family: Arial, Helvetica, sans-serif;  color: #000'>"
 	iframeStyle = "<pre style='white-space: pre-line; font-size: 20px; font-family: Arial, Helvetica, sans-serif;  color: #000'>"
@@ -129,10 +130,10 @@ func webServer(logger *log.Logger) *http.Server {
 			fmt.Fprintf(w, `"{"code":"BadRequest","err":"You have to define host."`)
 			return
 		}
-		match, _ := regexp.MatchString(ipv4Regex+`|`+ipv6Regex+`|`+domainRegex, host)
+		match, _ := regexp.MatchString(ipv4Regex+`|`+ipv6Regex+`|`+domainRegex+`|`+asnRegex, host)
 		if !match {
 			w.WriteHeader(http.StatusBadRequest)
-			fmt.Fprintf(w, `"{"code":"BadRequest","err":"Host is not IPv4, IPv6 or domain"`)
+			fmt.Fprintf(w, `"{"code":"BadRequest","err":"Host is not IPv4, IPv6, domain or ASN"`)
 			return
 		}
 
