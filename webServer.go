@@ -80,9 +80,9 @@ func webServer(logger *log.Logger) *http.Server {
 	router.HandleFunc("/looking-glass-controller", func(w http.ResponseWriter, r *http.Request) {
 		// Server conf checker
 
-		if serverConfig["IPv4"] != "enabled" && serverConfig["IPv6"] != "enabled" {
+		if !isFunctionEnabled["IPv4"] && !isFunctionEnabled["IPv6"] {
 			w.WriteHeader(http.StatusNotAcceptable)
-			fmt.Fprintf(w, `{"code":"NotAcceptable","err":This server does not have a IPv4 and IPv6 connection, so this server is disabled."`)
+			fmt.Fprintf(w, `{"code":"NotAcceptable","err":This server does not have a IPv4 and IPv6 connection, so this server is disabled or in maintance"`)
 			return
 		}
 
@@ -93,14 +93,14 @@ func webServer(logger *log.Logger) *http.Server {
 			"whois",
 			"nslookup":
 		default:
-			if serverConfig["IPv4"] == "enabled" && serverConfig["IPv6"] != "enabled" {
+			if isFunctionEnabled["IPv4"] && !isFunctionEnabled["IPv6"] {
 				if r.URL.Query().Get("IPVersion") != "IPv4" {
 					w.WriteHeader(http.StatusNotAcceptable)
 					fmt.Fprintf(w, `{"code":"NotAcceptable","err":"This server only allow IPv4 requests"}`)
 					return
 				}
 			}
-			if serverConfig["IPv6"] == "enabled" && serverConfig["IPv4"] != "enabled" {
+			if isFunctionEnabled["IPv6"] && !isFunctionEnabled["IPv4"] {
 				if r.URL.Query().Get("IPVersion") != "IPv6" {
 					w.WriteHeader(http.StatusNotAcceptable)
 					fmt.Fprintf(w, `{"code":"NotAcceptable","err":"This server only allow IPv6 requests"}`)
@@ -109,7 +109,7 @@ func webServer(logger *log.Logger) *http.Server {
 			}
 
 		}
-		if serverConfig[r.URL.Query().Get("funcType")] != "enabled" {
+		if !isFunctionEnabled[r.URL.Query().Get("funcType")] {
 			w.WriteHeader(http.StatusForbidden)
 			fmt.Fprintf(w, `{"code":"Forbidden","err":"This function is disabled"}`)
 			return
