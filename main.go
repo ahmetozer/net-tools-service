@@ -31,12 +31,6 @@ var (
 	ecdsaCurve = flag.String("ecdsa-curve", "", "ECDSA curve to use to generate a key. Valid values are P224, P256 (recommended), P384, P521")
 	ed25519Key = flag.Bool("ed25519", false, "Generate an Ed25519 key")
 	listenAddr = flag.String("listen-addr", "", "Server listen address")
-	configURL  = flag.String("config-url", "", "Configuration url for this server")
-	svLoc      = flag.String("svloc", "", "indicate this server name")
-
-	listenAddrhttp = flag.String("enable-http", "", "Server listen address for http")
-	///hostname string
-	allowedreferrers []string
 )
 
 func main() {
@@ -89,13 +83,13 @@ func main() {
 	flag.Parse()
 
 	//args := flag.Args()
-	if *listenAddr == "" && *listenAddrhttp == "" {
-		fmt.Println("No http or https listen address given. HTTPS is used by default.")
+	if *listenAddr == "" {
+		fmt.Println("HTTPS port 443 is used")
 		var tmpaddr = ":443"
 		listenAddr = &tmpaddr
 	}
 	// Get the configs from web server.
-	lgServerConfigListLoad(*configURL, *svLoc)
+	lgServerConfigListLoad()
 
 	// Create a logger for https server
 	logger := log.New(os.Stdout, "https: ", log.LstdFlags)

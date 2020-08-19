@@ -35,10 +35,12 @@ func middlewareHTTPHandler(next http.Handler) http.Handler {
 		}
 
 		// This may be requests comes from different domain, port or http scheme.
-		if httpScheme+"://"+r.Host != serverConfigOldToBeReplaced["ThisServerURL"] {
-			w.WriteHeader(http.StatusNotAcceptable)
-			fmt.Fprintf(w, `{"code":"NotAcceptable","err":"Request Domain is different", "requestDomain": "%s"}`, httpScheme+"://"+r.Host)
-			return
+		if allowedDomain != "" {
+			if r.Host != allowedDomain {
+				w.WriteHeader(http.StatusNotAcceptable)
+				fmt.Fprintf(w, `{"code":"NotAcceptable","err":"Request Domain is different", "requestDomain": "%s"}`, httpScheme+"://"+r.Host)
+				return
+			}
 		}
 
 		// Referer Control for forbiding embedding this service to unknown websites.
@@ -51,11 +53,15 @@ func middlewareHTTPHandler(next http.Handler) http.Handler {
 			fmt.Fprintf(w, `{"code":"%s","err":"%s"}`, http.StatusText(http.StatusInternalServerError), err.Error())
 			return
 		}
-		// Check is referer in list.
-		if !contains(allowedReferrers, u.Host) {
-			w.WriteHeader(http.StatusNotAcceptable)
-			fmt.Fprintf(w, `{"code":"NotAcceptable","err":"Referrer is not allowed", "referrer": "%s"}`, u.Host)
-			return
+
+		// check if referers controlled
+		if allowedReferrers != nil {
+			// Check is referer in list.
+			if !contains(allowedReferrers, u.Host) {
+				w.WriteHeader(http.StatusNotAcceptable)
+				fmt.Fprintf(w, `{"code":"NotAcceptable","err":"Referrer is not allowed", "referrer": "%s"}`, u.Host)
+				return
+			}
 		}
 
 		w.Header().Set("CONTENT-SECURITY-POLICY", "default-src 'none'; style-src 'unsafe-inline';base-uri 'self';")
