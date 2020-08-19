@@ -20,6 +20,14 @@ func middlewareHTTPHandler(next http.Handler) http.Handler {
 			return
 		}
 
+		// If every basic security checks is ok, Let's control the ratio of request from client to preventing over usage and also any proxy.
+
+		limiter := limiter.GetLimiter(ip)
+		if !limiter.Allow() {
+			http.Error(w, http.StatusText(http.StatusTooManyRequests), http.StatusTooManyRequests)
+			return
+		}
+
 		// Define request method.
 		httpScheme := "https"
 		if r.TLS == nil {
@@ -27,7 +35,7 @@ func middlewareHTTPHandler(next http.Handler) http.Handler {
 		}
 
 		// This may be requests comes from different domain, port or http scheme.
-		if httpScheme+"://"+r.Host != serverConfig["ThisServerURL"] {
+		if httpScheme+"://"+r.Host != serverConfigOldToBeReplaced["ThisServerURL"] {
 			w.WriteHeader(http.StatusNotAcceptable)
 			fmt.Fprintf(w, `{"code":"NotAcceptable","err":"Request Domain is different", "requestDomain": "%s"}`, httpScheme+"://"+r.Host)
 			return
@@ -44,18 +52,12 @@ func middlewareHTTPHandler(next http.Handler) http.Handler {
 			return
 		}
 		// Check is referer in list.
-		if !contains(allowedreferrers, u.Host) {
+		if !contains(allowedReferrers, u.Host) {
 			w.WriteHeader(http.StatusNotAcceptable)
 			fmt.Fprintf(w, `{"code":"NotAcceptable","err":"Referrer is not allowed", "referrer": "%s"}`, u.Host)
 			return
 		}
-		// If every basic security checks is ok, Let's control the ratio of request from client to preventing over usage and also any proxy.
 
-		limiter := limiter.GetLimiter(ip)
-		if !limiter.Allow() {
-			http.Error(w, http.StatusText(http.StatusTooManyRequests), http.StatusTooManyRequests)
-			return
-		}
 		w.Header().Set("CONTENT-SECURITY-POLICY", "default-src 'none'; style-src 'unsafe-inline';base-uri 'self';")
 		w.Header().Set("Access-Control-Allow-Origin", u.Host)
 
