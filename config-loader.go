@@ -38,7 +38,7 @@ func lgServerConfigListLoad() {
 			}
 		}
 	} else {
-		configLogger.Println("\033[1;31mEnviroment variable \"functions\" is not set. All functions is Enabled.\033[0m")
+		configLogger.Println("\033[1;31mEnvironment variable \"functions\" is not set. All functions is Enabled.\033[0m")
 		for _, s := range availableFunctions {
 			isFunctionEnabled[s] = true
 		}
@@ -53,7 +53,7 @@ func lgServerConfigListLoad() {
 		}
 		fmt.Println()
 	} else {
-		configLogger.Println("\033[1;31mEnviroment variable \"referers\" is not set. All websites can make request to this server.\033[0m")
+		configLogger.Println("\033[1;31mEnvironment variable \"referers\" is not set. All websites can make request to this server.\033[0m")
 	}
 
 	serverHostname, err := os.Hostname()
