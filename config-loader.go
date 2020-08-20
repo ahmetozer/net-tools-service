@@ -1,122 +1,108 @@
 package main
 
 import (
-	"io/ioutil"
+	"fmt"
 	"log"
-	"net/http"
-	"net/url"
 	"os"
 	"strings"
-
-	"github.com/tidwall/gjson"
 )
 
 var (
-	serverConfig map[string]string
+	isFunctionEnabled map[string]bool
+	///hostname string
+	allowedReferrers []string
+	//
+	allowedDomain string = ""
 )
 
-func lgServerConfigListLoad(configURL string, svLoc string) {
+func lgServerConfigListLoad() {
 	configLogger := log.New(os.Stdout, "Config Loader: ", log.LstdFlags)
-	serverConfig = make(map[string]string)
-	serverConfig["whois"] = "disabled"
-	serverConfig["nslookup"] = "disabled"
-	serverConfig["ping"] = "disabled"
-	serverConfig["icmp"] = "disabled"
-	serverConfig["tracert"] = "disabled"
-	serverConfig["webcontrol"] = "disabled"
-	serverConfig["tcp"] = "disabled"
-	serverConfig["IPv4"] = "disabled"
-	serverConfig["IPv6"] = "disabled"
-	serverConfig["curl"] = "disabled"
-	serverConfig["mtr"] = "enabled"
-	serverConfig["referrers"] = ""
 
-	// Control the Config URL is defined
-	if configURL == "" {
-		configLogger.Println("Config url is not defined. please define with --config-url")
+	availableFunctions := []string{"whois", "nslookup", "ping", "icmp", "tracert", "webcontrol", "tcp", "curl", "mtr"}
+	availableIPVersion := []string{"IPv4", "IPv6", "DS", "disabled"}
+
+	isFunctionEnabled = make(map[string]bool)
+	// This is not required because it is false by default.
+	for _, s := range availableFunctions {
+		isFunctionEnabled[s] = false
 	}
 
-	// Control the svLoc is defined
-	if svLoc == "" {
-		configLogger.Println("server Location is not defined. Please define with --svloc")
-	}
-
-	// If svLoc or configURL is empty, Enable every settings.
-	if svLoc == "" || configURL == "" {
-		configLogger.Println("\033[1;31mAll settings Enabled.\033[0m")
+	// Look which functions is enabled
+	enabledFunctionsENV, ok := os.LookupEnv("functions")
+	if ok {
+		enabledFunctions := strings.Split(enabledFunctionsENV, ",")
+		for _, s := range enabledFunctions {
+			if contains(availableFunctions, s) {
+				isFunctionEnabled[s] = true
+			} else {
+				configLogger.Println(s + " is unknown function")
+			}
+		}
 	} else {
-		// If configuration url and server loc is given, Start to load conf.
-
-		// Get config from remote.
-		resp, err := http.Get(configURL)
-		if err != nil {
-			// If anything going bad, print err and exit.
-			configLogger.Fatalln(err)
+		configLogger.Println("\033[1;31mEnvironment variable \"functions\" is not set. All functions is Enabled.\033[0m")
+		for _, s := range availableFunctions {
+			isFunctionEnabled[s] = true
 		}
+	}
 
-		defer resp.Body.Close()
-
-		// Check the configuration url has a file.
-		if resp.StatusCode != http.StatusOK {
-			configLogger.Fatalln("Config server response is ok. Response : " + resp.Status)
-		}
-		// Read response
-		RemoteConfigJSON, err := ioutil.ReadAll(resp.Body)
-		if err != nil {
-			configLogger.Fatalln(err)
-		}
-
-		// parse current server as a array to start nested loop.
-		currentServerName := strings.Split(svLoc, ".")
-
-		// Start minus 1 because firstly checks "ServerConfig" item.
-		for i := -1; i < len(currentServerName); i++ {
-			var currentLoc string
-			for t := 0; t <= i; t++ {
-				currentLoc = currentLoc + ".Servers." + currentServerName[t]
+	enabledIPVersionENV, ok := os.LookupEnv("ipver")
+	if ok {
+		enabledIPVersions := strings.Split(enabledIPVersionENV, ",")
+		for _, s := range enabledIPVersions {
+			if !contains(availableIPVersion, s) {
+				configLogger.Println("IP version " + s + " is not known.")
 			}
-			if i == len(currentServerName)-1 {
-				currentLocWithRemovedFirstDot := strings.Replace(currentLoc, ".", "", 1)
-				serverURLexpexted := gjson.Get(string(RemoteConfigJSON), currentLocWithRemovedFirstDot+".Url").String()
-				serverListUnExpexted := gjson.Get(string(RemoteConfigJSON), currentLocWithRemovedFirstDot+".Servers").String()
-				if serverURLexpexted != "" && serverListUnExpexted == "" {
-					serverConfig["ThisServerURL"] = serverURLexpexted
-				} else {
-					configLogger.Fatalln("Given server location is not a server.")
+		}
+		isFunctionEnabled["IPv4"] = false
+		isFunctionEnabled["IPv6"] = false
+		if !contains(enabledIPVersions, "disabled") {
+			if contains(enabledIPVersions, "DS") {
+				isFunctionEnabled["IPv4"] = true
+				isFunctionEnabled["IPv6"] = true
+			} else {
+				if contains(enabledIPVersions, "IPv4") {
+					isFunctionEnabled["IPv4"] = true
 				}
-
-			}
-			currentLoc = currentLoc + ".ServerConfig"
-			currentLoc = strings.Replace(currentLoc, ".", "", 1)
-			//configLogger.Println("\nCurrent loc " + currentLoc)
-			if currentLoc != "" {
-				for k := range serverConfig {
-					if gjson.Get(string(RemoteConfigJSON), currentLoc+"."+k).String() != "" {
-						serverConfig[k] = gjson.Get(string(RemoteConfigJSON), currentLoc+"."+k).String()
-						//fmt.Printf("%s %s\n", k, serverConfig[k])
-					}
+				if contains(enabledIPVersions, "IPv6") {
+					isFunctionEnabled["IPv6"] = true
 				}
 			}
-
 		}
-		// Get frontend server address from config url
 
-		if serverConfig["referrers"] == "" {
-			parsedConfigURL, err := url.Parse(configURL)
-			if err != nil {
-				panic(err)
-			}
-			configLogger.Println("Referer Domain is not given, you can set with --referrers. System is only allows incoming requests from ", parsedConfigURL.Host)
-			allowedreferrers = []string{parsedConfigURL.Host} //parsedConfigURL.Host
+	} else {
+		configLogger.Println("IP version is not defined, DualStack mode enabled.")
+		isFunctionEnabled["IPv4"] = true
+		isFunctionEnabled["IPv6"] = true
+	}
+
+	referrersENV, ok := os.LookupEnv("referrers")
+	if ok {
+		allowedReferrers := strings.Split(referrersENV, ",")
+		configLogger.Print("Allowed sites to make request to this server : ")
+		for _, s := range allowedReferrers {
+			fmt.Print(s)
+		}
+		fmt.Println()
+	} else {
+		configLogger.Println("\033[1;31mEnvironment variable \"referrers\" is not set. All websites can make request to this server.\033[0m")
+	}
+
+	serverHostname, err := os.Hostname()
+	if err != nil {
+		configLogger.Fatalln(err)
+	}
+
+	hostnameCheck, ok := os.LookupEnv("hostname")
+	if ok {
+		if hostnameCheck == "" {
+			allowedDomain = serverHostname
+			configLogger.Println("hostname:", serverHostname)
 		} else {
-			allowedreferrers = strings.Split(serverConfig["referrers"], ",")
+			configLogger.Println("hostname:", hostnameCheck)
+			allowedDomain = hostnameCheck
 		}
-
-		// Print everthing is successfully
-		configLogger.Println("Setting loaded for " + svLoc)
-		for k, v := range serverConfig {
-			configLogger.Println(k+":", v)
-		}
+	} else {
+		configLogger.Println("\033[1;31mRequested domain is not controlled. Any one can bind this ip with any domain.\033[0m")
 	}
 
 }
