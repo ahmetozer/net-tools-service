@@ -30,7 +30,7 @@ var (
 	rsaBits    = flag.Int("rsa-bits", 2048, "Size of RSA key to generate. Ignored if --ecdsa-curve is set")
 	ecdsaCurve = flag.String("ecdsa-curve", "", "ECDSA curve to use to generate a key. Valid values are P224, P256 (recommended), P384, P521")
 	ed25519Key = flag.Bool("ed25519", false, "Generate an Ed25519 key")
-	listenAddr = flag.String("listen-addr", "", "Server listen address")
+	listenAddr string
 )
 
 func main() {
@@ -82,12 +82,19 @@ func main() {
 	// Parse the flags
 	flag.Parse()
 
-	//args := flag.Args()
-	if *listenAddr == "" {
+	listenAddr, ok := os.LookupEnv("listenaddr")
+	if ok {
+		if listenAddr == "" {
+			log.Fatalln("\033[1;31mERR. listenaddr is defined to empty.\033[0m")
+		} else {
+			fmt.Println("HTTPS is listen at " + listenAddr)
+		}
+
+	} else {
 		fmt.Println("HTTPS port 443 is used")
-		var tmpaddr = ":443"
-		listenAddr = &tmpaddr
+		listenAddr = ":443"
 	}
+
 	// Get the configs from web server.
 	lgServerConfigListLoad()
 
@@ -98,9 +105,9 @@ func main() {
 	signal.Notify(quit, os.Interrupt)
 	server := webServer(logger)
 	go gracefullShutdown(server, logger, quit, done)
-	logger.Println("Server is ready to handle requests at", *listenAddr)
+	logger.Println("Server is ready to handle requests at", listenAddr)
 	if err := server.ListenAndServeTLS(certDir+"/cert.pem", certDir+"/key.pem"); err != nil && err != http.ErrServerClosed {
-		logger.Fatalf("Could not listen on %s: %v\n", *listenAddr, err)
+		logger.Fatalf("\033[1;31m Could not listen on %s: %v\n\033[0m", listenAddr, err)
 	}
 	<-done
 	logger.Println("Server stopped")
@@ -152,7 +159,7 @@ func gracefullShutdown(server *http.Server, logger *log.Logger, quit <-chan os.S
 
 	server.SetKeepAlivesEnabled(false)
 	if err := server.Shutdown(ctx); err != nil {
-		logger.Fatalf("Could not gracefully shutdown the server: %v\n", err)
+		logger.Fatalf("\033[1;31mCould not gracefully shutdown the server: %v\n\033[0m", err)
 	}
 	close(done)
 }

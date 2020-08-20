@@ -76,7 +76,7 @@ func init() {
 		if err == nil {
 			limiter = newIPRateLimiter(1, i)
 		} else {
-			log.Fatalf("Cannot assing your rate limit. Please write number between 1 - 65535")
+			log.Fatalf("\033[1;31mCannot assing your rate limit. Please write number between 1 - 65535\033[0m")
 		}
 
 	} else {
@@ -86,10 +86,10 @@ func init() {
 	cacheDuration, ok := os.LookupEnv("cache")
 	if ok {
 		if _, err := time.ParseDuration(cacheDuration); err != nil {
-			log.Fatalln(err)
+			log.Fatalln("\033[1;31ma" + fmt.Sprint(err) + "\033[0m")
 		}
 	} else {
-		log.Println("\033[1;31mEnvironment variable \"cache\" is not set. Default cache value is 10s .\033[0m")
+		log.Println("Environment variable \"cache\" is not set. Default cache value is 10s .")
 	}
 }
 func webServer(logger *log.Logger) *http.Server {
@@ -652,7 +652,7 @@ func webServer(logger *log.Logger) *http.Server {
 	// return as a webServer
 	return &http.Server{
 
-		Addr:     *listenAddr,
+		Addr:     listenAddr,
 		Handler:  middlewareHTTPHandler(router),
 		ErrorLog: logger,
 		/* Close sockets */
