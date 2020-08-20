@@ -141,13 +141,14 @@ func webServer(logger *log.Logger) *http.Server {
 			}
 
 			if !contains([]string{"IPv4", "IPv6", "IPvDefault"}, r.URL.Query().Get("IPVersion")) {
-				fmt.Fprintf(w, "{\"code\":\"WrongIPVersion\"}")
+				w.WriteHeader(http.StatusNotAcceptable)
+				fmt.Fprintf(w, `{"code:"NotAcceptable", err":"WrongIPVersion"}`)
 				return
 			}
 		}
 		if !isFunctionEnabled[r.URL.Query().Get("funcType")] {
 			w.WriteHeader(http.StatusForbidden)
-			fmt.Fprintf(w, `{"code":"Forbidden","err":"This function is disabled"}`)
+			fmt.Fprintf(w, `{"code":"Forbidden", "err":"This function is disabled"}`)
 			return
 
 		}
@@ -184,19 +185,22 @@ func webServer(logger *log.Logger) *http.Server {
 			switch r.URL.Query().Get("IPVersion") {
 			case "IPv4":
 				if !isMayIPv4(host) {
-					fmt.Fprintf(w, "{\"code\":\"IPVersionMissMatch\"}")
+					w.WriteHeader(http.StatusBadRequest)
+					fmt.Fprintf(w, `{"code":"BadRequest", "err":"IPVersionMissMatch"}`)
 					return
 				}
 				args = append(args, "-4")
 			case "IPv6":
 				if !isMayIPv6(host) {
-					fmt.Fprintf(w, "{\"code\":\"IPVersionMissMatch\"}")
+					w.WriteHeader(http.StatusBadRequest)
+					fmt.Fprintf(w, `{"code":"BadRequest", "err":"IPVersionMissMatch"}`)
 					return
 				}
 				args = append(args, "-6")
 			case "IPvDefault":
 			default:
-				fmt.Fprintf(w, "{\"code\":\"WrongIPVersion\"}")
+				w.WriteHeader(http.StatusBadRequest)
+				fmt.Fprintf(w, `{"code":"BadRequest", "err":"WrongIPVersion"}`)
 				return
 			}
 
@@ -209,16 +213,16 @@ func webServer(logger *log.Logger) *http.Server {
 				if err != nil { // If error occur on ping command.
 					// If given input type wich is IPv4 or IPv6 and run type is not match this error will be occur
 					if fmt.Sprint(err) == "exit status 2" {
-						fmt.Fprintf(w, cachedString("{\"code\":\"funcTypeMissMatchExecuted\"}"))
+						fmt.Fprintf(w, cachedString(`{"code":"BadRequest", "err":"funcTypeMissMatchExecuted"}`))
 						return
 					}
 					//	When the ping command cannot access the server, this error will be occur
 					if fmt.Sprint(err) == "exit status 1" {
-						fmt.Fprintf(w, cachedString("{\"code\":\"RemoteHostDown\"}"))
+						fmt.Fprintf(w, cachedString(`{"code":"RemoteHostDown"}`))
 						return
 					}
 					// If Any un expected occur, this will be shown
-					fmt.Fprintf(w, cachedString("{\"code\":\"UnknownExit\",\"exitCode\":\""+fmt.Sprint(err)+"\",\"execOut:\""+string(out)+"\"}"))
+					fmt.Fprintf(w, cachedString(`{"code":"InternalServerError","err":"UnknownExit","exitCode":`+fmt.Sprint(err)+`","execOut:`+string(out)+`"}`))
 
 				} else {
 
@@ -254,23 +258,27 @@ func webServer(logger *log.Logger) *http.Server {
 				port = "443"
 			}
 			if !isPortValid(port) {
-				fmt.Fprintf(w, `{"code":"InvalidPort"}`)
+				w.WriteHeader(http.StatusBadRequest)
+				fmt.Fprintf(w, `{"code":"BadRequest", "err":"InvalidPort"}`)
 				return
 			}
 			switch r.URL.Query().Get("IPVersion") {
 			case "IPv4":
 				if !isMayIPv4(host) {
-					fmt.Fprintf(w, "{\"code\":\"IPVersionMissMatch\"}")
+					w.WriteHeader(http.StatusBadRequest)
+					fmt.Fprintf(w, `{"code":"BadRequest", "err":"IPVersionMissMatch"}`)
 					return
 				}
 			case "IPv6":
 				if !isMayIPv6(host) {
-					fmt.Fprintf(w, "{\"code\":\"IPVersionMissMatch\"}")
+					w.WriteHeader(http.StatusBadRequest)
+					fmt.Fprintf(w, `{"code":"BadRequest", "err":"IPVersionMissMatch"}`)
 					return
 				}
 			case "IPvDefault":
 			default:
-				fmt.Fprintf(w, "{\"code\":\"WrongIPVersion\"}")
+				w.WriteHeader(http.StatusBadRequest)
+				fmt.Fprintf(w, `{"code":"BadRequest", "err":"WrongIPVersion"}`)
 				return
 			}
 			//Check if it's a domain
@@ -325,7 +333,8 @@ func webServer(logger *log.Logger) *http.Server {
 						}
 					}
 				default:
-					fmt.Fprintf(w, "{\"code\":\"WrongIPVersion\"}")
+					w.WriteHeader(http.StatusNotAcceptable)
+					fmt.Fprintf(w, `{"code:"NotAcceptable", err":"WrongIPVersion"}`)
 					return
 				}
 			}
@@ -360,7 +369,8 @@ func webServer(logger *log.Logger) *http.Server {
 				if isPortValid(port) {
 					host = host + ":" + port
 				} else {
-					fmt.Fprintf(w, `{ "code":"InvalidPort" }`)
+					w.WriteHeader(http.StatusBadRequest)
+					fmt.Fprintf(w, `{"code":"BadRequest", "err":"InvalidPort"}`)
 					return
 				}
 			}
@@ -376,7 +386,8 @@ func webServer(logger *log.Logger) *http.Server {
 					fmt.Fprint(w, string(storage.Get(r.RequestURI)))
 				}
 			} else {
-				fmt.Fprintf(w, `{ "code":"SchemeDoesNotMatchHTTPorHTTPS" }`)
+				w.WriteHeader(http.StatusBadRequest)
+				fmt.Fprintf(w, `{"code":"BadRequest", "err":"SchemeDoesNotMatchHTTPorHTTPS"}`)
 			}
 			return
 		case "time":
@@ -412,7 +423,7 @@ func webServer(logger *log.Logger) *http.Server {
 				match, _ := regexp.MatchString(ipv4Regex+`|`+ipv6Regex+`|`+domainRegex, nameserver)
 				if !match {
 					w.WriteHeader(http.StatusBadRequest)
-					fmt.Fprintf(w, "ERR: Host is not IPv4, IPv6 or domain")
+					fmt.Fprintf(w, `{"code":"BadRequest", "err":"Host is not IPv4, IPv6 or domain"}`)
 					return
 				}
 				args = append(args, nameserver)
@@ -449,19 +460,22 @@ func webServer(logger *log.Logger) *http.Server {
 			switch r.URL.Query().Get("IPVersion") {
 			case "IPv4":
 				if !isMayIPv4(host) {
-					fmt.Fprintf(w, "{\"code\":\"IPVersionMissMatch\"}")
+					w.WriteHeader(http.StatusBadRequest)
+					fmt.Fprintf(w, `{"code":"BadRequest", "err":"IPVersionMissMatch"}`)
 					return
 				}
 				args = append(args, "-4")
 			case "IPv6":
 				if !isMayIPv6(host) {
-					fmt.Fprintf(w, "{\"code\":\"IPVersionMissMatch\"}")
+					w.WriteHeader(http.StatusBadRequest)
+					fmt.Fprintf(w, `{"code":"BadRequest", "err":"IPVersionMissMatch"}`)
 					return
 				}
 				args = append(args, "-6")
 			case "IPvDefault":
 			default:
-				fmt.Fprintf(w, "{\"code\":\"WrongIPVersion\"}")
+				w.WriteHeader(http.StatusNotAcceptable)
+				fmt.Fprintf(w, `{"code:"NotAcceptable", err":"WrongIPVersion"}`)
 				return
 			}
 
@@ -501,19 +515,22 @@ func webServer(logger *log.Logger) *http.Server {
 			switch r.URL.Query().Get("IPVersion") {
 			case "IPv4":
 				if !isMayIPv4(host) {
-					fmt.Fprintf(w, "{\"code\":\"IPVersionMissMatch\"}")
+					w.WriteHeader(http.StatusBadRequest)
+					fmt.Fprintf(w, `{"code":"BadRequest", "err":"IPVersionMissMatch"}`)
 					return
 				}
 				args = append(args, "-4")
 			case "IPv6":
 				if !isMayIPv6(host) {
-					fmt.Fprintf(w, "{\"code\":\"IPVersionMissMatch\"}")
+					w.WriteHeader(http.StatusBadRequest)
+					fmt.Fprintf(w, `{"code":"BadRequest", "err":"IPVersionMissMatch"}`)
 					return
 				}
 				args = append(args, "-6")
 			case "IPvDefault":
 			default:
-				fmt.Fprintf(w, "{\"code\":\"WrongIPVersion\"}")
+				w.WriteHeader(http.StatusNotAcceptable)
+				fmt.Fprintf(w, `{"code:"NotAcceptable", err":"WrongIPVersion"}`)
 				return
 			}
 
@@ -547,19 +564,22 @@ func webServer(logger *log.Logger) *http.Server {
 			switch r.URL.Query().Get("IPVersion") {
 			case "IPv4":
 				if !isMayIPv4(host) {
-					fmt.Fprintf(w, "{\"code\":\"IPVersionMissMatch\"}")
+					w.WriteHeader(http.StatusBadRequest)
+					fmt.Fprintf(w, `{"code":"BadRequest", "err":"IPVersionMissMatch"}`)
 					return
 				}
 				args = append(args, "-4")
 			case "IPv6":
 				if !isMayIPv6(host) {
-					fmt.Fprintf(w, "{\"code\":\"IPVersionMissMatch\"}")
+					w.WriteHeader(http.StatusBadRequest)
+					fmt.Fprintf(w, `{"code":"BadRequest", "err":"IPVersionMissMatch"}`)
 					return
 				}
 				args = append(args, "-6")
 			case "IPvDefault":
 			default:
-				fmt.Fprintf(w, "{\"code\":\"WrongIPVersion\"}")
+				w.WriteHeader(http.StatusNotAcceptable)
+				fmt.Fprintf(w, `{"code:"NotAcceptable", err":"WrongIPVersion"}`)
 				return
 			}
 
@@ -588,19 +608,22 @@ func webServer(logger *log.Logger) *http.Server {
 			switch r.URL.Query().Get("IPVersion") {
 			case "IPv4":
 				if !isMayIPv4(host) {
-					fmt.Fprintf(w, "{\"code\":\"IPVersionMissMatch\"}")
+					w.WriteHeader(http.StatusBadRequest)
+					fmt.Fprintf(w, `{"code":"BadRequest", "err":"IPVersionMissMatch"}`)
 					return
 				}
 				args = append(args, "-4")
 			case "IPv6":
 				if !isMayIPv6(host) {
-					fmt.Fprintf(w, "{\"code\":\"IPVersionMissMatch\"}")
+					w.WriteHeader(http.StatusBadRequest)
+					fmt.Fprintf(w, `{"code":"BadRequest", "err":"IPVersionMissMatch"}`)
 					return
 				}
 				args = append(args, "-6")
 			case "IPvDefault":
 			default:
-				fmt.Fprintf(w, "{\"code\":\"WrongIPVersion\"}")
+				w.WriteHeader(http.StatusNotAcceptable)
+				fmt.Fprintf(w, `{"code:"NotAcceptable", err":"WrongIPVersion"}`)
 				return
 			}
 			if isMayOnlyIPv6(host) { // Add brackets if IPv6
@@ -612,7 +635,8 @@ func webServer(logger *log.Logger) *http.Server {
 			case "http":
 				host = "http://" + host
 			default:
-				fmt.Fprintf(w, "{\"code\":\"WrongreqSchemeVersion\"}")
+				w.WriteHeader(http.StatusNotAcceptable)
+				fmt.Fprintf(w, `{"code:"NotAcceptable", err":"WrongreqSchemeVersion"}`)
 				return
 			}
 
