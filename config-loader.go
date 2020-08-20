@@ -18,7 +18,8 @@ var (
 func lgServerConfigListLoad() {
 	configLogger := log.New(os.Stdout, "Config Loader: ", log.LstdFlags)
 
-	availableFunctions := []string{"whois", "nslookup", "ping", "icmp", "tracert", "webcontrol", "tcp", "IPv4", "IPv6", "curl", "mtr"}
+	availableFunctions := []string{"whois", "nslookup", "ping", "icmp", "tracert", "webcontrol", "tcp", "curl", "mtr"}
+	availableIPVersion := []string{"IPv4", "IPv6", "DS", "disabled"}
 
 	isFunctionEnabled = make(map[string]bool)
 	// This is not required because it is false by default.
@@ -42,6 +43,36 @@ func lgServerConfigListLoad() {
 		for _, s := range availableFunctions {
 			isFunctionEnabled[s] = true
 		}
+	}
+
+	enabledIPVersionENV, ok := os.LookupEnv("ipver")
+	if ok {
+		enabledIPVersions := strings.Split(enabledIPVersionENV, ",")
+		for _, s := range enabledIPVersions {
+			if !contains(availableIPVersion, s) {
+				configLogger.Println("IP version " + s + " is not known.")
+			}
+		}
+		isFunctionEnabled["IPv4"] = false
+		isFunctionEnabled["IPv6"] = false
+		if !contains(enabledIPVersions, "disabled") {
+			if contains(enabledIPVersions, "DS") {
+				isFunctionEnabled["IPv4"] = true
+				isFunctionEnabled["IPv6"] = true
+			} else {
+				if contains(enabledIPVersions, "IPv4") {
+					isFunctionEnabled["IPv4"] = true
+				}
+				if contains(enabledIPVersions, "IPv6") {
+					isFunctionEnabled["IPv6"] = true
+				}
+			}
+		}
+
+	} else {
+		configLogger.Println("IP version is not defined, DualStack mode enabled.")
+		isFunctionEnabled["IPv4"] = true
+		isFunctionEnabled["IPv6"] = true
 	}
 
 	referersENV, ok := os.LookupEnv("referers")
