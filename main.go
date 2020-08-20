@@ -116,9 +116,7 @@ func main() {
 }
 
 var help = `
-it will be written
-Read more:
-https://github.com/ahmetozer/net-tools-service
+Please visit: https://github.com/ahmetozer/net-tools-service
 `
 
 func certCheck() {
