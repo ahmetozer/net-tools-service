@@ -6,10 +6,15 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"os"
 	"os/exec"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
+
+	"github.com/ahmetozer/net-tools-service/cache"
+	"github.com/ahmetozer/net-tools-service/cache/memory"
 )
 
 func recoverFromAnywhere(Where string) {
@@ -56,10 +61,37 @@ var (
 
 	//iframeStyle = "<pre style='white-space: pre-line; text-shadow: 3px 3px 4px #000; font-size: 20px; font-family: Arial, Helvetica, sans-serif;  color: #000'>"
 	iframeStyle = "<pre style='white-space: pre-line; font-size: 20px; font-family: Arial, Helvetica, sans-serif;  color: #000'>"
+
+	storage       cache.Storage
+	cacheDuration = "10s"
+	httpQuery     string
+	limiter       *IPRateLimiter
 )
 
-var limiter = newIPRateLimiter(1, 1)
+func init() {
+	storage = memory.NewStorage()
 
+	if isPortValid(os.Getenv("rate")) {
+		i, err := strconv.Atoi(os.Getenv("rate"))
+		if err == nil {
+			limiter = newIPRateLimiter(1, i)
+		} else {
+			log.Fatalf("Cannot assing your rate limit. Please write number between 1 - 65535")
+		}
+
+	} else {
+		limiter = newIPRateLimiter(1, 1)
+	}
+
+	cacheDuration, ok := os.LookupEnv("cache")
+	if ok {
+		if _, err := time.ParseDuration(cacheDuration); err != nil {
+			log.Fatalln(err)
+		}
+	} else {
+		log.Println("\033[1;31mEnvironment variable \"cache\" is not set. Default cache value is 10s .\033[0m")
+	}
+}
 func webServer(logger *log.Logger) *http.Server {
 
 	// Crearte New HTTP Router
@@ -69,15 +101,15 @@ func webServer(logger *log.Logger) *http.Server {
 	router.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("content-type", "text/html; charset=utf-8")
 		w.WriteHeader(http.StatusNotFound)
-		fmt.Fprintf(w, `<title="Looking Glass Server"/><h2>Error page `+fmt.Sprint(r.URL)+
-			` not found.</h2></br><p>Looking Glass Server. For more information, visit <a href="https://ahmetozer.org/">ahmetozer.org</a></p>`)
+		fmt.Fprintf(w, `<title="Net Tools Service"/><h2>Error page `+fmt.Sprint(r.URL)+
+			` not found.</h2></br><p>Net Tools Service. For more information, visit <a href="https://ahmetozer.org/">ahmetozer.org</a></p>`)
 	})
-	router.HandleFunc("/svCheck", func(w http.ResponseWriter, r *http.Request) {
+	router.HandleFunc("/svCheck.go", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Access-Control-Allow-Origin", "*")
 		w.WriteHeader(http.StatusOK)
 	})
 	// Get System Disk informations with linux util lsblk . // JSON
-	router.HandleFunc("/looking-glass-controller", func(w http.ResponseWriter, r *http.Request) {
+	router.HandleFunc("/net-tools-service.go", func(w http.ResponseWriter, r *http.Request) {
 		// Server conf checker
 
 		if !isFunctionEnabled["IPv4"] && !isFunctionEnabled["IPv6"] {
@@ -85,7 +117,7 @@ func webServer(logger *log.Logger) *http.Server {
 			fmt.Fprintf(w, `{"code":"NotAcceptable","err":This server does not have a IPv4 and IPv6 connection, so this server is disabled or in maintance"`)
 			return
 		}
-
+		httpQuery = r.RequestURI
 		// All functions to be check connecting IP version except time,whois,nslookup
 		switch r.URL.Query().Get("funcType") {
 		case // IPversion control not required services
@@ -108,6 +140,10 @@ func webServer(logger *log.Logger) *http.Server {
 				}
 			}
 
+			if !contains([]string{"IPv4", "IPv6", "IPvDefault"}, r.URL.Query().Get("IPVersion")) {
+				fmt.Fprintf(w, "{\"code\":\"WrongIPVersion\"}")
+				return
+			}
 		}
 		if !isFunctionEnabled[r.URL.Query().Get("funcType")] {
 			w.WriteHeader(http.StatusForbidden)
@@ -127,13 +163,13 @@ func webServer(logger *log.Logger) *http.Server {
 		*/
 		if host == "" {
 			w.WriteHeader(http.StatusBadRequest)
-			fmt.Fprintf(w, `"{"code":"BadRequest","err":"You have to define host."`)
+			fmt.Fprintf(w, `{"code":"BadRequest","err":"You have to define host."}`)
 			return
 		}
 		match, _ := regexp.MatchString(ipv4Regex+`|`+ipv6Regex+`|`+domainRegex+`|`+asnRegex, host)
 		if !match {
 			w.WriteHeader(http.StatusBadRequest)
-			fmt.Fprintf(w, `"{"code":"BadRequest","err":"Host is not IPv4, IPv6, domain or ASN"`)
+			fmt.Fprintf(w, `{"code":"BadRequest","err":"Host is not IPv4, IPv6, domain or ASN"}`)
 			return
 		}
 
@@ -163,48 +199,53 @@ func webServer(logger *log.Logger) *http.Server {
 				fmt.Fprintf(w, "{\"code\":\"WrongIPVersion\"}")
 				return
 			}
-			args = append(args, host)
-			cmd := exec.Command("ping", args...)
-			//err := cmd.Run()
-			out, err := cmd.CombinedOutput()
 
-			if err != nil { // If error occur on ping command.
-				// If given input type wich is IPv4 or IPv6 and run type is not match this error will be occur
-				if fmt.Sprint(err) == "exit status 2" {
-					fmt.Fprintf(w, "{\"code\":\"funcTypeMissMatchExecuted\"}")
-					return
-				}
-				//	When the ping command cannot access the server, this error will be occur
-				if fmt.Sprint(err) == "exit status 1" {
-					fmt.Fprintf(w, "{\"code\":\"RemoteHostDown\"}")
-					return
-				}
-				// If Any un expected occur, this will be shown
-				fmt.Fprintf(w, "{\"code\":\"UnknownExit\",\"exitCode\":\""+fmt.Sprint(err)+"\",\"execOut:\""+string(out)+"\"}")
+			if storage.Get(r.RequestURI) == nil {
+				args = append(args, host)
+				cmd := exec.Command("ping", args...)
+				//err := cmd.Run()
+				out, err := cmd.CombinedOutput()
 
+				if err != nil { // If error occur on ping command.
+					// If given input type wich is IPv4 or IPv6 and run type is not match this error will be occur
+					if fmt.Sprint(err) == "exit status 2" {
+						fmt.Fprintf(w, cachedString("{\"code\":\"funcTypeMissMatchExecuted\"}"))
+						return
+					}
+					//	When the ping command cannot access the server, this error will be occur
+					if fmt.Sprint(err) == "exit status 1" {
+						fmt.Fprintf(w, cachedString("{\"code\":\"RemoteHostDown\"}"))
+						return
+					}
+					// If Any un expected occur, this will be shown
+					fmt.Fprintf(w, cachedString("{\"code\":\"UnknownExit\",\"exitCode\":\""+fmt.Sprint(err)+"\",\"execOut:\""+string(out)+"\"}"))
+
+				} else {
+
+					//  Execute output to convert string
+					outString := string(out)
+
+					// Get only rtt status
+					mdevLoc := strings.Index(outString, "/mdev =")
+					rttOut := outString[mdevLoc+8 : mdevLoc+strings.Index(outString[mdevLoc+1:], "ms")]
+					// parse rtt status
+					rttOutParsed := strings.Split(rttOut, "/") // [0] rtt min , [1] avg, [2] max, [3] mdev
+					// Get other data from program output.
+					transmittedPacketCount := outString[strings.Index(outString, "ping statistics ---")+20 : strings.Index(outString, " packets transmitted,")]
+					receivedPacketCount := outString[strings.Index(outString, " packets transmitted,")+22 : strings.Index(outString, " received,")]
+					packetLoss := outString[strings.Index(outString, " received,")+11 : strings.Index(outString, " packet loss,")]
+
+					//fmt.Fprint(w)
+					//fmt.Fprint(w, rttOutParsed[0]+"\n"+transmittedPacketCount+"\n"+recivedPacketCount+"\n"+packetLoss)
+
+					fmt.Fprint(w, cachedString(`{"code":"OK", "rttmin":"`+rttOutParsed[0]+`", "rttavg":"`+rttOutParsed[1]+`", "rttmax":"`+rttOutParsed[2]+`", "mdev":"`+
+						rttOutParsed[3]+`", "packetloss":"`+packetLoss+`", "recivedPacketCount": "`+receivedPacketCount+`", "transmittedPacketCount":"`+transmittedPacketCount+`"}`))
+
+					// To debug output
+					//fmt.Fprint(w, "\n=====================================================\n\n\n"+outString)
+				}
 			} else {
-
-				//  Execute output to convert string
-				outString := string(out)
-
-				// Get only rtt status
-				mdevLoc := strings.Index(outString, "/mdev =")
-				rttOut := outString[mdevLoc+8 : mdevLoc+strings.Index(outString[mdevLoc+1:], "ms")]
-				// parse rtt status
-				rttOutParsed := strings.Split(rttOut, "/") // [0] rtt min , [1] avg, [2] max, [3] mdev
-				// Get other data from program output.
-				transmittedPacketCount := outString[strings.Index(outString, "ping statistics ---")+20 : strings.Index(outString, " packets transmitted,")]
-				recivedPacketCount := outString[strings.Index(outString, " packets transmitted,")+22 : strings.Index(outString, " received,")]
-				packetLoss := outString[strings.Index(outString, " received,")+11 : strings.Index(outString, " packet loss,")]
-
-				//fmt.Fprint(w)
-				//fmt.Fprint(w, rttOutParsed[0]+"\n"+transmittedPacketCount+"\n"+recivedPacketCount+"\n"+packetLoss)
-
-				fmt.Fprint(w, `{"code":"OK", "rttmin":"`+rttOutParsed[0]+`", "rttavg":"`+rttOutParsed[1]+`", "rttmax":"`+rttOutParsed[2]+`", "mdev":"`+
-					rttOutParsed[3]+`", "packetloss":"`+packetLoss+`", "recivedPacketCount": "`+recivedPacketCount+`", "transmittedPacketCount":"`+transmittedPacketCount+`"}`)
-
-				// To debug output
-				//fmt.Fprint(w, "\n=====================================================\n\n\n"+outString)
+				fmt.Fprint(w, string(storage.Get(r.RequestURI)))
 			}
 			return
 		case "tcp":
@@ -212,7 +253,26 @@ func webServer(logger *log.Logger) *http.Server {
 			if port == "" {
 				port = "443"
 			}
-
+			if !isPortValid(port) {
+				fmt.Fprintf(w, `{"code":"InvalidPort"}`)
+				return
+			}
+			switch r.URL.Query().Get("IPVersion") {
+			case "IPv4":
+				if !isMayIPv4(host) {
+					fmt.Fprintf(w, "{\"code\":\"IPVersionMissMatch\"}")
+					return
+				}
+			case "IPv6":
+				if !isMayIPv6(host) {
+					fmt.Fprintf(w, "{\"code\":\"IPVersionMissMatch\"}")
+					return
+				}
+			case "IPvDefault":
+			default:
+				fmt.Fprintf(w, "{\"code\":\"WrongIPVersion\"}")
+				return
+			}
 			//Check if it's a domain
 			if isMayDomain(host) {
 				// resolve domain, Pre resolvin important for net.Dialer. If its not pre resolved, Resolving time will be add to latency.
@@ -231,7 +291,7 @@ func webServer(logger *log.Logger) *http.Server {
 						}
 					}
 					if !isMayOnlyIPv4(host) {
-						fmt.Fprintf(w, `{ "code":"DomainResolveErr", "err":"DomainDoesNotHaveAIPv4" }`)
+						fmt.Fprintf(w, `{"code":"DomainResolveErr", "err":"DomainDoesNotHaveAIPv4"}`)
 						return
 					}
 				case "IPv6":
@@ -242,34 +302,53 @@ func webServer(logger *log.Logger) *http.Server {
 						}
 					}
 					if !isMayOnlyIPv6(host) {
-						fmt.Fprintf(w, `{ "code":"DomainResolveErr", "err":"DomainDoesNotHaveAIPv6" }`)
+						fmt.Fprintf(w, `{"code":"DomainResolveErr", "err":"DomainDoesNotHaveAIPv6"}`)
 						return
 					}
+				case "IPvDefault":
+					for _, ip := range ips {
+						host = ip.String()
+						if isMayOnlyIPv6(host) {
+							break
+						}
+					}
+					if !isMayOnlyIPv6(host) {
+						for _, ip := range ips {
+							host = ip.String()
+							if isMayOnlyIPv6(host) {
+								break
+							}
+						}
+						if !isMayOnlyIPv4(host) {
+							fmt.Fprintf(w, `{"code":"DomainResolveErr", "err":"DomainDoesNotHaveAIPv4andIPv6"}`)
+							return
+						}
+					}
+				default:
+					fmt.Fprintf(w, "{\"code\":\"WrongIPVersion\"}")
+					return
 				}
 			}
 
 			if isMayIPv6(host) { // Add brackets if IPv6
 				host = "[" + host + "]"
 			}
+			host = host + ":" + port
 
-			if isPortValid(port) {
-				host = host + ":" + port
+			if storage.Get(r.RequestURI) == nil {
+				d := net.Dialer{Timeout: 5 * time.Second}
+				dialStartTime := time.Now()
+				conn, err := d.Dial("tcp", host)
+				if err != nil {
+					fmt.Fprintf(w, cachedString(`{ "code"="Down","err":"`+fmt.Sprint(err)+`" }`))
+					return
+				}
+				elapsedTime := time.Since(dialStartTime)
+				fmt.Fprintf(w, cachedString(`{ "code"="ok","latency":"`+fmt.Sprint(elapsedTime.Milliseconds())+` ms" }`))
+				defer conn.Close()
 			} else {
-				fmt.Fprintf(w, `{ "code":"InvalidPort" }`)
-				return
+				fmt.Fprint(w, string(storage.Get(r.RequestURI)))
 			}
-
-			d := net.Dialer{Timeout: 5 * time.Second}
-			dialStartTime := time.Now()
-			conn, err := d.Dial("tcp", host)
-			if err != nil {
-				fmt.Fprintf(w, `{ "code"="Down","err":"`+fmt.Sprint(err)+`" }`)
-				return
-			}
-			elapsedTime := time.Since(dialStartTime)
-			fmt.Fprintf(w, `{ "code"="ok","latency":"%d ms" }`, elapsedTime.Milliseconds())
-			defer conn.Close()
-
 			return
 		case "webcontrol":
 			scheme := r.URL.Query().Get("scheme")
@@ -286,11 +365,15 @@ func webServer(logger *log.Logger) *http.Server {
 				}
 			}
 			if isHTTPURLScheme(scheme) {
-				resp, err := http.Get(scheme + "://" + host)
-				if err != nil {
-					fmt.Fprintf(w, `{ "code"="Down","err":"`+fmt.Sprint(err)+`" }`)
-				} else { // Print the HTTP Status Code and Status Name
-					fmt.Fprintf(w, `{ "code":"`+http.StatusText(resp.StatusCode)+`" }`)
+				if storage.Get(r.RequestURI) == nil {
+					resp, err := http.Get(scheme + "://" + host)
+					if err != nil {
+						fmt.Fprintf(w, cachedString(`{ "code"="Down","err":"`+fmt.Sprint(err)+`" }`))
+					} else { // Print the HTTP Status Code and Status Name
+						fmt.Fprintf(w, cachedString(`{ "code":"`+http.StatusText(resp.StatusCode)+`" }`))
+					}
+				} else {
+					fmt.Fprint(w, string(storage.Get(r.RequestURI)))
 				}
 			} else {
 				fmt.Fprintf(w, `{ "code":"SchemeDoesNotMatchHTTPorHTTPS" }`)
@@ -588,4 +671,23 @@ func setLiveOutputHeaders(w http.ResponseWriter) {
 	w.Header().Set("Pragma", "public")
 	w.Header().Set("Cache-Control", "public, maxage=10, proxy-revalidate")
 	w.Header().Set("X-Accel-Buffering", "no")
+}
+
+func cachedString(cacheableString string) string {
+	content := storage.Get(httpQuery)
+
+	if content != nil {
+		fmt.Print("Cache Hit!\n")
+		return string(content)
+	}
+	content = []byte(cacheableString)
+
+	if d, err := time.ParseDuration(cacheDuration); err == nil {
+		storage.Set(httpQuery, content, d)
+		return cacheableString
+	} else {
+		fmt.Println(err)
+		return cacheableString
+	}
+
 }
