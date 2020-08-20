@@ -75,16 +75,16 @@ func lgServerConfigListLoad() {
 		isFunctionEnabled["IPv6"] = true
 	}
 
-	referersENV, ok := os.LookupEnv("referers")
+	referrersENV, ok := os.LookupEnv("referrers")
 	if ok {
-		allowedReferrers := strings.Split(referersENV, ",")
+		allowedReferrers := strings.Split(referrersENV, ",")
 		configLogger.Print("Allowed sites to make request to this server : ")
 		for _, s := range allowedReferrers {
 			fmt.Print(s)
 		}
 		fmt.Println()
 	} else {
-		configLogger.Println("\033[1;31mEnvironment variable \"referers\" is not set. All websites can make request to this server.\033[0m")
+		configLogger.Println("\033[1;31mEnvironment variable \"referrers\" is not set. All websites can make request to this server.\033[0m")
 	}
 
 	serverHostname, err := os.Hostname()

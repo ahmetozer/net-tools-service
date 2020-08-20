@@ -54,7 +54,7 @@ func middlewareHTTPHandler(next http.Handler) http.Handler {
 			return
 		}
 
-		// check if referers controlled
+		// check if referrers controlled
 		if allowedReferrers != nil {
 			// Check is referer in list.
 			if !contains(allowedReferrers, u.Host) {
