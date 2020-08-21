@@ -123,6 +123,7 @@ func webServer(logger *log.Logger) *http.Server {
 		case // IPversion control not required services
 			"time",
 			"whois",
+			"",
 			"nslookup":
 		default:
 			if isFunctionEnabled["IPv4"] && !isFunctionEnabled["IPv6"] {
@@ -148,7 +149,7 @@ func webServer(logger *log.Logger) *http.Server {
 		}
 		if !isFunctionEnabled[r.URL.Query().Get("funcType")] {
 			w.WriteHeader(http.StatusForbidden)
-			fmt.Fprintf(w, `{"code":"Forbidden", "err":"This function is disabled"}`)
+			fmt.Fprintf(w, `{"code":"Forbidden", "err":"This function is disabled or not found"}`)
 			return
 
 		}
@@ -661,13 +662,13 @@ func webServer(logger *log.Logger) *http.Server {
 			return
 		default:
 			// if any unknown function name given.
-			w.WriteHeader(http.StatusNotFound)
 			// requestDump, err := httputil.DumpRequest(r, true)
 			// if err != nil {
 			// 	fmt.Println(err)
 			// }
 			// fmt.Fprintf(w, string(requestDump))
-			fmt.Fprintf(w, "Function "+r.URL.Query().Get("funcType")+" is not found")
+			w.WriteHeader(http.StatusNotAcceptable)
+			fmt.Fprintf(w, `{"code:"NotAcceptable", err":"FunctionIsNotFound"}`)
 			return
 		}
 
