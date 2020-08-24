@@ -64,7 +64,6 @@ var (
 
 	storage       cache.Storage
 	cacheDuration = "10s"
-	httpQuery     string
 	limiter       *IPRateLimiter
 )
 
@@ -97,19 +96,7 @@ func webServer(logger *log.Logger) *http.Server {
 	// Crearte New HTTP Router
 	router := http.NewServeMux()
 
-	// Index Handler
 	router.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("content-type", "text/html; charset=utf-8")
-		w.WriteHeader(http.StatusNotFound)
-		fmt.Fprintf(w, `<title="Net Tools Service"/><h2>Error page `+fmt.Sprint(r.URL)+
-			` not found.</h2></br><p>Net Tools Service. For more information, visit <a href="https://ahmetozer.org/">ahmetozer.org</a></p>`)
-	})
-	router.HandleFunc("/svCheck.go", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Access-Control-Allow-Origin", "*")
-		w.WriteHeader(http.StatusOK)
-	})
-	// Get System Disk informations with linux util lsblk . // JSON
-	router.HandleFunc("/net-tools-service.go", func(w http.ResponseWriter, r *http.Request) {
 		// Server conf checker
 
 		if !isFunctionEnabled["IPv4"] && !isFunctionEnabled["IPv6"] {
@@ -117,7 +104,6 @@ func webServer(logger *log.Logger) *http.Server {
 			fmt.Fprintf(w, `{"code":"NotAcceptable","err":This server does not have a IPv4 and IPv6 connection, so this server is disabled or in maintance"`)
 			return
 		}
-		httpQuery = r.RequestURI
 		// All functions to be check connecting IP version except time,whois,nslookup
 		switch r.URL.Query().Get("funcType") {
 		case // IPversion control not required services
@@ -157,6 +143,8 @@ func webServer(logger *log.Logger) *http.Server {
 		// All functions require host variable
 
 		host := r.URL.Query().Get("host")
+
+		storageHash := r.URL.Query().Get("funcType") + " - " + host + " - " + r.URL.Query().Get("IPVersion") // r.RequestURI
 
 		setLiveOutputHeaders(w)
 
@@ -205,7 +193,7 @@ func webServer(logger *log.Logger) *http.Server {
 				return
 			}
 
-			if storage.Get(r.RequestURI) == nil {
+			if storage.Get(storageHash) == nil {
 				args = append(args, host)
 				cmd := exec.Command("ping", args...)
 				//err := cmd.Run()
@@ -214,16 +202,16 @@ func webServer(logger *log.Logger) *http.Server {
 				if err != nil { // If error occur on ping command.
 					// If given input type wich is IPv4 or IPv6 and run type is not match this error will be occur
 					if fmt.Sprint(err) == "exit status 2" {
-						fmt.Fprintf(w, cachedString(`{"code":"BadRequest", "err":"funcTypeMissMatchExecuted"}`))
+						fmt.Fprintf(w, cachedString(storageHash, `{"code":"BadRequest", "err":"funcTypeMissMatchExecuted"}`))
 						return
 					}
 					//	When the ping command cannot access the server, this error will be occur
 					if fmt.Sprint(err) == "exit status 1" {
-						fmt.Fprintf(w, cachedString(`{"code":"RemoteHostDown"}`))
+						fmt.Fprintf(w, cachedString(storageHash, `{"code":"RemoteHostDown"}`))
 						return
 					}
 					// If Any un expected occur, this will be shown
-					fmt.Fprintf(w, cachedString(`{"code":"InternalServerError","err":"UnknownExit","exitCode":`+fmt.Sprint(err)+`","execOut:`+string(out)+`"}`))
+					fmt.Fprintf(w, cachedString(storageHash, `{"code":"InternalServerError","err":"UnknownExit","exitCode":`+fmt.Sprint(err)+`","execOut:`+string(out)+`"}`))
 
 				} else {
 
@@ -243,14 +231,14 @@ func webServer(logger *log.Logger) *http.Server {
 					//fmt.Fprint(w)
 					//fmt.Fprint(w, rttOutParsed[0]+"\n"+transmittedPacketCount+"\n"+recivedPacketCount+"\n"+packetLoss)
 
-					fmt.Fprint(w, cachedString(`{"code":"OK", "rttmin":"`+rttOutParsed[0]+`", "rttavg":"`+rttOutParsed[1]+`", "rttmax":"`+rttOutParsed[2]+`", "mdev":"`+
+					fmt.Fprint(w, cachedString(storageHash, `{"code":"OK", "rttmin":"`+rttOutParsed[0]+`", "rttavg":"`+rttOutParsed[1]+`", "rttmax":"`+rttOutParsed[2]+`", "mdev":"`+
 						rttOutParsed[3]+`", "packetloss":"`+packetLoss+`", "recivedPacketCount": "`+receivedPacketCount+`", "transmittedPacketCount":"`+transmittedPacketCount+`"}`))
 
 					// To debug output
 					//fmt.Fprint(w, "\n=====================================================\n\n\n"+outString)
 				}
 			} else {
-				fmt.Fprint(w, string(storage.Get(r.RequestURI)))
+				fmt.Fprint(w, string(storage.Get(storageHash)))
 			}
 			return
 		case "tcp":
@@ -345,19 +333,19 @@ func webServer(logger *log.Logger) *http.Server {
 			}
 			host = host + ":" + port
 
-			if storage.Get(r.RequestURI) == nil {
+			if storage.Get(storageHash) == nil {
 				d := net.Dialer{Timeout: 5 * time.Second}
 				dialStartTime := time.Now()
 				conn, err := d.Dial("tcp", host)
 				if err != nil {
-					fmt.Fprintf(w, cachedString(`{ "code"="Down","err":"`+fmt.Sprint(err)+`" }`))
+					fmt.Fprintf(w, cachedString(storageHash, `{ "code"="Down","err":"`+fmt.Sprint(err)+`" }`))
 					return
 				}
 				elapsedTime := time.Since(dialStartTime)
-				fmt.Fprintf(w, cachedString(`{ "code"="ok","latency":"`+fmt.Sprint(elapsedTime.Milliseconds())+` ms" }`))
+				fmt.Fprintf(w, cachedString(storageHash, `{ "code"="ok","latency":"`+fmt.Sprint(elapsedTime.Milliseconds())+` ms" }`))
 				defer conn.Close()
 			} else {
-				fmt.Fprint(w, string(storage.Get(r.RequestURI)))
+				fmt.Fprint(w, string(storage.Get(storageHash)))
 			}
 			return
 		case "webcontrol":
@@ -376,15 +364,15 @@ func webServer(logger *log.Logger) *http.Server {
 				}
 			}
 			if isHTTPURLScheme(scheme) {
-				if storage.Get(r.RequestURI) == nil {
+				if storage.Get(storageHash) == nil {
 					resp, err := http.Get(scheme + "://" + host)
 					if err != nil {
-						fmt.Fprintf(w, cachedString(`{ "code"="Down","err":"`+fmt.Sprint(err)+`" }`))
+						fmt.Fprintf(w, cachedString(storageHash, `{ "code"="Down","err":"`+fmt.Sprint(err)+`" }`))
 					} else { // Print the HTTP Status Code and Status Name
-						fmt.Fprintf(w, cachedString(`{ "code":"`+http.StatusText(resp.StatusCode)+`" }`))
+						fmt.Fprintf(w, cachedString(storageHash, `{ "code":"`+http.StatusText(resp.StatusCode)+`" }`))
 					}
 				} else {
-					fmt.Fprint(w, string(storage.Get(r.RequestURI)))
+					fmt.Fprint(w, string(storage.Get(storageHash)))
 				}
 			} else {
 				w.WriteHeader(http.StatusBadRequest)
@@ -674,6 +662,15 @@ func webServer(logger *log.Logger) *http.Server {
 
 	})
 
+	router.HandleFunc("/about", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("content-type", "text/html; charset=utf-8")
+		w.WriteHeader(http.StatusNotFound)
+		fmt.Fprintf(w, `<title="Net Tools Service"/><h1>Net Tools Service</h1></br><p>For more information, visit <a href="https://ahmetozer.org/">ahmetozer.org</a></br><a href="https://github.com/ahmetozer/net-tools-service/">github.com/ahmetozer/net-tools-service/</a></p>`)
+	})
+	router.HandleFunc("/svcheck", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.WriteHeader(http.StatusOK)
+	})
 	// return as a webServer
 	return &http.Server{
 
@@ -698,17 +695,16 @@ func setLiveOutputHeaders(w http.ResponseWriter) {
 	w.Header().Set("X-Accel-Buffering", "no")
 }
 
-func cachedString(cacheableString string) string {
-	content := storage.Get(httpQuery)
+func cachedString(storageHash string, cacheableString string) string {
 
+	content := storage.Get(storageHash)
 	if content != nil {
-		fmt.Print("Cache Hit!\n")
 		return string(content)
 	}
 	content = []byte(cacheableString)
 
 	if d, err := time.ParseDuration(cacheDuration); err == nil {
-		storage.Set(httpQuery, content, d)
+		storage.Set(storageHash, content, d)
 		return cacheableString
 	} else {
 		fmt.Println(err)
