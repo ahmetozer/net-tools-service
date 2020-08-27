@@ -73,6 +73,7 @@ func init() {
 	if isPortValid(os.Getenv("rate")) {
 		i, err := strconv.Atoi(os.Getenv("rate"))
 		if err == nil {
+			log.Println("Rate limit is setted to " + fmt.Sprint(i))
 			limiter = newIPRateLimiter(1, i)
 		} else {
 			log.Fatalf("\033[1;31mCannot assing your rate limit. Please write number between 1 - 65535\033[0m")
