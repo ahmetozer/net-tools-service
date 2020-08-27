@@ -103,7 +103,7 @@ func main() {
 	done := make(chan bool, 1)
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, os.Interrupt)
-	server := webServer(logger)
+	server := webServer(logger, listenAddr)
 	go gracefullShutdown(server, logger, quit, done)
 	logger.Println("Server is ready to handle requests at", listenAddr)
 	if err := server.ListenAndServeTLS(certDir+"/cert.pem", certDir+"/key.pem"); err != nil && err != http.ErrServerClosed {

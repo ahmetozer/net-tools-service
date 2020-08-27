@@ -92,7 +92,7 @@ func init() {
 		log.Println("Environment variable \"cache\" is not set. Default cache value is 10s .")
 	}
 }
-func webServer(logger *log.Logger) *http.Server {
+func webServer(logger *log.Logger, lAdr string) *http.Server {
 
 	// Crearte New HTTP Router
 	router := http.NewServeMux()
@@ -203,7 +203,7 @@ func webServer(logger *log.Logger) *http.Server {
 				if err != nil { // If error occur on ping command.
 					// If given input type wich is IPv4 or IPv6 and run type is not match this error will be occur
 					if fmt.Sprint(err) == "exit status 2" {
-						fmt.Fprintf(w, cachedString(storageHash, `{"code":"BadRequest", "err":"funcTypeMissMatchExecuted"}`))
+						fmt.Fprintf(w, cachedString(storageHash, `{"code":"BadRequest", "err":"funcTypeMissMatchExecuted", "host":"`+host+`"}`))
 						return
 					}
 					//	When the ping command cannot access the server, this error will be occur
@@ -675,7 +675,7 @@ func webServer(logger *log.Logger) *http.Server {
 	// return as a webServer
 	return &http.Server{
 
-		Addr:     listenAddr,
+		Addr:     lAdr,
 		Handler:  middlewareHTTPHandler(router),
 		ErrorLog: logger,
 		/* Close sockets */
