@@ -65,7 +65,9 @@ func middlewareHTTPHandler(next http.Handler) http.Handler {
 		}
 
 		w.Header().Set("CONTENT-SECURITY-POLICY", "default-src 'none'; style-src 'unsafe-inline';base-uri 'self';")
-		w.Header().Set("Access-Control-Allow-Origin", u.Host)
+		if u.Scheme != "" {
+			w.Header().Set("Access-Control-Allow-Origin", u.Scheme+"://"+u.Host)
+		}
 
 		next.ServeHTTP(w, r)
 	})
