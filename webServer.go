@@ -141,33 +141,81 @@ func webServer(logger *log.Logger, lAdr string) *http.Server {
 
 		}
 
-		// All functions require host variable
+		var host = "EMPTY"
+		switch r.URL.Query().Get("funcType") {
+		case "svinfo":
+		default:
 
-		host := r.URL.Query().Get("host")
+			// functions require host variable by default
 
+			host = r.URL.Query().Get("host")
+			setLiveOutputHeaders(w)
+
+			/*
+				Check host input
+			*/
+			if host == "" {
+				w.WriteHeader(http.StatusBadRequest)
+				fmt.Fprintf(w, `{"code":"BadRequest","err":"You have to define host."}`)
+				return
+			}
+			match, _ := regexp.MatchString(ipv4Regex+`|`+ipv6Regex+`|`+domainRegex+`|`+asnRegex, host)
+			if !match {
+				w.WriteHeader(http.StatusBadRequest)
+				fmt.Fprintf(w, `{"code":"BadRequest","err":"Host is not IPv4, IPv6, domain or ASN"}`)
+				return
+			}
+		}
 		storageHash := r.URL.Query().Get("funcType") + " - " + host + " - " + r.URL.Query().Get("IPVersion") // r.RequestURI
-
-		setLiveOutputHeaders(w)
-
-		/*
-			Check host input
-		*/
-		if host == "" {
-			w.WriteHeader(http.StatusBadRequest)
-			fmt.Fprintf(w, `{"code":"BadRequest","err":"You have to define host."}`)
-			return
-		}
-		match, _ := regexp.MatchString(ipv4Regex+`|`+ipv6Regex+`|`+domainRegex+`|`+asnRegex, host)
-		if !match {
-			w.WriteHeader(http.StatusBadRequest)
-			fmt.Fprintf(w, `{"code":"BadRequest","err":"Host is not IPv4, IPv6, domain or ASN"}`)
-			return
-		}
 
 		/*
 			Server functions
 		*/
 		switch r.URL.Query().Get("funcType") {
+		case "svinfo":
+			args := []string{"-q"}
+			switch r.URL.Query().Get("IPVersion") {
+			case "IPv4":
+				args = append(args, "-4")
+			case "IPv6":
+				args = append(args, "-6")
+			case "IPvDefault":
+			default:
+				w.WriteHeader(http.StatusBadRequest)
+				fmt.Fprintf(w, `{"code":"BadRequest", "err":"WrongIPVersion"}`)
+				return
+			}
+
+			if storage.Get(storageHash) == nil {
+				host := "https://ahmetozer.org/cdn-cgi/tracert"
+				args = append(args, host)
+				cmd := exec.Command("curl", args...)
+				//err := cmd.Run()
+				out, err := cmd.CombinedOutput()
+
+				if err != nil { // If error occur on ping command.
+					// If given input type wich is IPv4 or IPv6 and run type is not match this error will be occur
+					if fmt.Sprint(err) == "exit status 2" {
+						fmt.Fprintf(w, cachedString(storageHash, `{"code":"BadRequest", "err":"funcTypeMissMatchExecuted"}`))
+						return
+					}
+					//	When the ping command cannot access the server, this error will be occur
+					if fmt.Sprint(err) == "exit status 1" {
+						fmt.Fprintf(w, cachedString(storageHash, `{"code":"Down", "err":"BadRequest"}`))
+						return
+					}
+					// If Any un expected occur, this will be shown
+					fmt.Fprintf(w, cachedString(storageHash, `{"code":"InternalServerError","err":"UnknownExit","exitCode":`+fmt.Sprint(err)+`","execOut:`+string(out)+`"}`))
+
+				} else {
+
+					fmt.Fprint(w, cachedString(storageHash, `{"ip":"`+getINI(string(out), "ip")+`", "loc":"`+getINI(string(out), "loc")+`"}`))
+				}
+			} else {
+				fmt.Fprint(w, string(storage.Get(storageHash)))
+			}
+
+			return
 		case "icmp":
 
 			//cmd.Dir = "/empty/"

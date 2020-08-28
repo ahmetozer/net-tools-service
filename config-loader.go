@@ -18,7 +18,7 @@ var (
 func lgServerConfigListLoad() {
 	configLogger := log.New(os.Stdout, "Config Loader: ", log.LstdFlags)
 
-	availableFunctions := []string{"whois", "nslookup", "ping", "icmp", "tracert", "webcontrol", "tcp", "curl", "mtr"}
+	availableFunctions := []string{"whois", "nslookup", "ping", "icmp", "tracert", "webcontrol", "tcp", "curl", "mtr", "svinfo"}
 	availableIPVersion := []string{"IPv4", "IPv6", "DS", "disabled"}
 
 	isFunctionEnabled = make(map[string]bool)

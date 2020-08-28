@@ -14,7 +14,7 @@ It is designed to run basic net tools securely in containers.
 
 - Automatic Self Certificate Generation
 - Limit incoming requests (Rate Limit)
-- Execute some network tools (nslookup, ping, tracert, whois, curl, mtr)
+- Execute some network tools (nslookup, ping, tracert, whois, curl, mtr, svinfo)
 - Live command output
 - Gracefully Shutdown
 
@@ -98,3 +98,5 @@ Another way is bind container`s port to your server port. You can use any un use
 - Program is only executable in www-data user. (Prevent any security issue)
 
 - If you use outside of container you have to install "ping", "traceroute", "whois", "nslookup", "mtr", "curl" into to your server.
+
+- You can get your server IP address with svinfo function.
