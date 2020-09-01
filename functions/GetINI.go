@@ -1,8 +1,8 @@
-package main
+package functions
 
 import "strings"
 
-func getINI(iniText string, key string) string {
+func GetINI(iniText string, key string) string {
 
 	keyLoc := strings.Index(iniText, key)
 	if keyLoc == -1 {

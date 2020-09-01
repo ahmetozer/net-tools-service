@@ -13,21 +13,15 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ahmetozer/net-tools-service/cache"
-	"github.com/ahmetozer/net-tools-service/cache/memory"
+	cache "github.com/ahmetozer/net-tools-service/cache"
+	"github.com/ahmetozer/net-tools-service/functions"
 )
-
-func recoverFromAnywhere(Where string) {
-	if r := recover(); r != nil {
-		fmt.Println("Recovered from ", Where, r)
-	}
-}
 
 // pass CMD output to HTTP
 func writeCmdOutput(res http.ResponseWriter, pipeReader *io.PipeReader) {
 	BUFLEN := 1024 // for
 	buffer := make([]byte, BUFLEN)
-	defer recoverFromAnywhere("Http Flush Panic")
+	defer functions.Recover("Http Flush Panic")
 	for {
 		n, err := pipeReader.Read(buffer)
 		if err != nil {
@@ -62,13 +56,10 @@ var (
 	//iframeStyle = "<pre style='white-space: pre-line; text-shadow: 3px 3px 4px #000; font-size: 20px; font-family: Arial, Helvetica, sans-serif;  color: #000'>"
 	iframeStyle = "<pre style='white-space: pre-line; font-size: 20px; font-family: Arial, Helvetica, sans-serif;  color: #000'>"
 
-	storage       cache.Storage
-	cacheDuration = "10s"
-	limiter       *IPRateLimiter
+	limiter *IPRateLimiter
 )
 
 func init() {
-	storage = memory.NewStorage()
 
 	if isPortValid(os.Getenv("rate")) {
 		i, err := strconv.Atoi(os.Getenv("rate"))
@@ -83,15 +74,8 @@ func init() {
 		limiter = newIPRateLimiter(1, 1)
 	}
 
-	cacheDuration, ok := os.LookupEnv("cache")
-	if ok {
-		if _, err := time.ParseDuration(cacheDuration); err != nil {
-			log.Fatalln("\033[1;31ma" + fmt.Sprint(err) + "\033[0m")
-		}
-	} else {
-		log.Println("Environment variable \"cache\" is not set. Default cache value is 10s .")
-	}
 }
+
 func webServer(logger *log.Logger, lAdr string) *http.Server {
 
 	// Crearte New HTTP Router
@@ -149,7 +133,7 @@ func webServer(logger *log.Logger, lAdr string) *http.Server {
 			// functions require host variable by default
 
 			host = r.URL.Query().Get("host")
-			setLiveOutputHeaders(w)
+			functions.SetLiveOutputHeaders(w)
 
 			/*
 				Check host input
@@ -186,7 +170,9 @@ func webServer(logger *log.Logger, lAdr string) *http.Server {
 				return
 			}
 
-			if storage.Get(storageHash) == nil {
+			if cache.IsCached(storageHash) {
+				fmt.Fprint(w, cache.Get(storageHash))
+			} else {
 				host := "https://ahmetozer.org/cdn-cgi/tracert"
 				args = append(args, host)
 				cmd := exec.Command("curl", args...)
@@ -196,23 +182,21 @@ func webServer(logger *log.Logger, lAdr string) *http.Server {
 				if err != nil { // If error occur on ping command.
 					// If given input type wich is IPv4 or IPv6 and run type is not match this error will be occur
 					if fmt.Sprint(err) == "exit status 2" {
-						fmt.Fprintf(w, cachedString(storageHash, `{"code":"BadRequest", "err":"funcTypeMissMatchExecuted"}`))
+						fmt.Fprintf(w, cache.Set(storageHash, `{"code":"BadRequest", "err":"funcTypeMissMatchExecuted"}`))
 						return
 					}
 					//	When the ping command cannot access the server, this error will be occur
 					if fmt.Sprint(err) == "exit status 1" {
-						fmt.Fprintf(w, cachedString(storageHash, `{"code":"Down", "err":"BadRequest"}`))
+						fmt.Fprintf(w, cache.Set(storageHash, `{"code":"Down", "err":"BadRequest"}`))
 						return
 					}
 					// If Any un expected occur, this will be shown
-					fmt.Fprintf(w, cachedString(storageHash, `{"code":"InternalServerError","err":"UnknownExit","exitCode":`+fmt.Sprint(err)+`","execOut:`+string(out)+`"}`))
+					fmt.Fprintf(w, cache.Set(storageHash, `{"code":"InternalServerError","err":"UnknownExit","exitCode":`+fmt.Sprint(err)+`","execOut:`+string(out)+`"}`))
 
 				} else {
 
-					fmt.Fprint(w, cachedString(storageHash, `{"ip":"`+getINI(string(out), "ip")+`", "loc":"`+getINI(string(out), "loc")+`"}`))
+					fmt.Fprint(w, cache.Set(storageHash, `{"ip":"`+functions.GetINI(string(out), "ip")+`", "loc":"`+functions.GetINI(string(out), "loc")+`"}`))
 				}
-			} else {
-				fmt.Fprint(w, string(storage.Get(storageHash)))
 			}
 
 			return
@@ -242,7 +226,9 @@ func webServer(logger *log.Logger, lAdr string) *http.Server {
 				return
 			}
 
-			if storage.Get(storageHash) == nil {
+			if cache.IsCached(storageHash) {
+				fmt.Fprint(w, cache.Get(storageHash))
+			} else {
 				args = append(args, host)
 				cmd := exec.Command("ping", args...)
 				//err := cmd.Run()
@@ -251,16 +237,16 @@ func webServer(logger *log.Logger, lAdr string) *http.Server {
 				if err != nil { // If error occur on ping command.
 					// If given input type wich is IPv4 or IPv6 and run type is not match this error will be occur
 					if fmt.Sprint(err) == "exit status 2" {
-						fmt.Fprintf(w, cachedString(storageHash, `{"code":"BadRequest", "err":"funcTypeMissMatchExecuted", "host":"`+host+`"}`))
+						fmt.Fprintf(w, cache.Set(storageHash, `{"code":"BadRequest", "err":"funcTypeMissMatchExecuted", "host":"`+host+`"}`))
 						return
 					}
 					//	When the ping command cannot access the server, this error will be occur
 					if fmt.Sprint(err) == "exit status 1" {
-						fmt.Fprintf(w, cachedString(storageHash, `{"code":"RemoteHostDown"}`))
+						fmt.Fprintf(w, cache.Set(storageHash, `{"code":"RemoteHostDown"}`))
 						return
 					}
 					// If Any un expected occur, this will be shown
-					fmt.Fprintf(w, cachedString(storageHash, `{"code":"InternalServerError","err":"UnknownExit","exitCode":`+fmt.Sprint(err)+`","execOut:`+string(out)+`"}`))
+					fmt.Fprintf(w, cache.Set(storageHash, `{"code":"InternalServerError","err":"UnknownExit","exitCode":`+fmt.Sprint(err)+`","execOut:`+string(out)+`"}`))
 
 				} else {
 
@@ -280,14 +266,12 @@ func webServer(logger *log.Logger, lAdr string) *http.Server {
 					//fmt.Fprint(w)
 					//fmt.Fprint(w, rttOutParsed[0]+"\n"+transmittedPacketCount+"\n"+recivedPacketCount+"\n"+packetLoss)
 
-					fmt.Fprint(w, cachedString(storageHash, `{"code":"OK", "rttmin":"`+rttOutParsed[0]+`", "rttavg":"`+rttOutParsed[1]+`", "rttmax":"`+rttOutParsed[2]+`", "mdev":"`+
+					fmt.Fprint(w, cache.Set(storageHash, `{"code":"OK", "rttmin":"`+rttOutParsed[0]+`", "rttavg":"`+rttOutParsed[1]+`", "rttmax":"`+rttOutParsed[2]+`", "mdev":"`+
 						rttOutParsed[3]+`", "packetloss":"`+packetLoss+`", "recivedPacketCount": "`+receivedPacketCount+`", "transmittedPacketCount":"`+transmittedPacketCount+`"}`))
 
 					// To debug output
 					//fmt.Fprint(w, "\n=====================================================\n\n\n"+outString)
 				}
-			} else {
-				fmt.Fprint(w, string(storage.Get(storageHash)))
 			}
 			return
 		case "tcp":
@@ -382,19 +366,19 @@ func webServer(logger *log.Logger, lAdr string) *http.Server {
 			}
 			host = host + ":" + port
 
-			if storage.Get(storageHash) == nil {
+			if cache.IsCached(storageHash) {
+				fmt.Fprint(w, cache.Get(storageHash))
+			} else {
 				d := net.Dialer{Timeout: 5 * time.Second}
 				dialStartTime := time.Now()
 				conn, err := d.Dial("tcp", host)
 				if err != nil {
-					fmt.Fprintf(w, cachedString(storageHash, `{ "code"="Down","err":"`+fmt.Sprint(err)+`" }`))
+					fmt.Fprintf(w, cache.Set(storageHash, `{ "code"="Down","err":"`+fmt.Sprint(err)+`" }`))
 					return
 				}
 				elapsedTime := time.Since(dialStartTime)
-				fmt.Fprintf(w, cachedString(storageHash, `{ "code"="ok","latency":"`+fmt.Sprint(elapsedTime.Milliseconds())+` ms" }`))
+				fmt.Fprintf(w, cache.Set(storageHash, `{ "code"="ok","latency":"`+fmt.Sprint(elapsedTime.Milliseconds())+` ms" }`))
 				defer conn.Close()
-			} else {
-				fmt.Fprint(w, string(storage.Get(storageHash)))
 			}
 			return
 		case "webcontrol":
@@ -413,15 +397,15 @@ func webServer(logger *log.Logger, lAdr string) *http.Server {
 				}
 			}
 			if isHTTPURLScheme(scheme) {
-				if storage.Get(storageHash) == nil {
+				if cache.IsCached(storageHash) {
+					fmt.Fprint(w, cache.Get(storageHash))
+				} else {
 					resp, err := http.Get(scheme + "://" + host)
 					if err != nil {
-						fmt.Fprintf(w, cachedString(storageHash, `{ "code"="Down","err":"`+fmt.Sprint(err)+`" }`))
+						fmt.Fprintf(w, cache.Set(storageHash, `{ "code"="Down","err":"`+fmt.Sprint(err)+`" }`))
 					} else { // Print the HTTP Status Code and Status Name
-						fmt.Fprintf(w, cachedString(storageHash, `{ "code":"`+http.StatusText(resp.StatusCode)+`" }`))
+						fmt.Fprintf(w, cache.Set(storageHash, `{ "code":"`+http.StatusText(resp.StatusCode)+`" }`))
 					}
-				} else {
-					fmt.Fprint(w, string(storage.Get(storageHash)))
 				}
 			} else {
 				w.WriteHeader(http.StatusBadRequest)
@@ -531,7 +515,7 @@ func webServer(logger *log.Logger, lAdr string) *http.Server {
 			cmd.Stdout = pipeWriter
 			cmd.Stderr = pipeWriter
 			// Pass to web output
-			go writeCmdOutput(w, pipeIn)
+			go functions.HttpExecPipe(w, pipeIn)
 
 			// Run commands
 			cmd.Run()
@@ -584,7 +568,7 @@ func webServer(logger *log.Logger, lAdr string) *http.Server {
 			cmd.Stdout = pipeWriter
 			cmd.Stderr = pipeWriter
 			// Pass to web output
-			go writeCmdOutput(w, pipeIn) // live output
+			go functions.HttpExecPipe(w, pipeIn) // live output
 			// Run command
 			cmd.Run()
 			pipeWriter.Close()
@@ -635,7 +619,7 @@ func webServer(logger *log.Logger, lAdr string) *http.Server {
 			cmd.Stdout = pipeWriter
 			cmd.Stderr = pipeWriter
 			// Pass to web output
-			go writeCmdOutput(w, pipeIn) // live output
+			go functions.HttpExecPipe(w, pipeIn) // live output
 			// Run command
 			cmd.Run()
 			pipeWriter.Close()
@@ -691,7 +675,7 @@ func webServer(logger *log.Logger, lAdr string) *http.Server {
 			cmd.Stdout = pipeWriter
 			cmd.Stderr = pipeWriter
 			// Pass to web output
-			go writeCmdOutput(w, pipeIn)
+			go functions.HttpExecPipe(w, pipeIn)
 
 			// Run commands
 			cmd.Run()
@@ -736,28 +720,3 @@ func webServer(logger *log.Logger, lAdr string) *http.Server {
 /*
 	Set HTTP headers to show live output on browser
 */
-func setLiveOutputHeaders(w http.ResponseWriter) {
-	w.Header().Set("content-type", "application/x-javascript")
-	w.Header().Set("expires", "10s")
-	w.Header().Set("Pragma", "public")
-	w.Header().Set("Cache-Control", "public, maxage=10, proxy-revalidate")
-	w.Header().Set("X-Accel-Buffering", "no")
-}
-
-func cachedString(storageHash string, cacheableString string) string {
-
-	content := storage.Get(storageHash)
-	if content != nil {
-		return string(content)
-	}
-	content = []byte(cacheableString)
-
-	if d, err := time.ParseDuration(cacheDuration); err == nil {
-		storage.Set(storageHash, content, d)
-		return cacheableString
-	} else {
-		fmt.Println(err)
-		return cacheableString
-	}
-
-}
