@@ -1,4 +1,4 @@
-package main
+package functions
 
 import (
 	"crypto/ecdsa"
@@ -30,7 +30,7 @@ func publicKey(priv interface{}) interface{} {
 		return nil
 	}
 }
-func sslCertGenerate() {
+func SslCertGenerate() {
 	flag.Parse()
 
 	// if len(*host) == 0 {

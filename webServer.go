@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"log"
@@ -83,7 +84,6 @@ func webServer(logger *log.Logger, lAdr string) *http.Server {
 
 	router.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		// Server conf checker
-
 		if !isFunctionEnabled["IPv4"] && !isFunctionEnabled["IPv6"] {
 			w.WriteHeader(http.StatusNotAcceptable)
 			fmt.Fprintf(w, `{"code":"NotAcceptable","err":This server does not have a IPv4 and IPv6 connection, so this server is disabled or in maintance"`)
@@ -127,6 +127,20 @@ func webServer(logger *log.Logger, lAdr string) *http.Server {
 
 		var host = "EMPTY"
 		switch r.URL.Query().Get("funcType") {
+
+		case "client":
+			mapB, err := json.Marshal(r.Header)
+			if err != nil {
+				fmt.Fprintf(w, "{ \"err\": \"%s\"", err)
+			}
+			clientIP, clientPort, err := net.SplitHostPort(r.RemoteAddr)
+			if err != nil {
+				fmt.Fprintf(w, "userip: %q is not IP:port", r.RemoteAddr)
+			}
+
+			fmt.Fprintf(w, "{ \"ip\": \"%s\", \"port\":\"%s\", \"headers\": %s}", net.ParseIP(clientIP), clientPort, mapB)
+			return
+
 		case "svinfo":
 		default:
 
@@ -156,50 +170,50 @@ func webServer(logger *log.Logger, lAdr string) *http.Server {
 			Server functions
 		*/
 		switch r.URL.Query().Get("funcType") {
-		case "svinfo":
-			args := []string{"-q"}
-			switch r.URL.Query().Get("IPVersion") {
-			case "IPv4":
-				args = append(args, "-4")
-			case "IPv6":
-				args = append(args, "-6")
-			case "IPvDefault":
-			default:
-				w.WriteHeader(http.StatusBadRequest)
-				fmt.Fprintf(w, `{"code":"BadRequest", "err":"WrongIPVersion"}`)
-				return
-			}
+		// case "svinfo":
+		// 	args := []string{"-q"}
+		// 	switch r.URL.Query().Get("IPVersion") {
+		// 	case "IPv4":
+		// 		args = append(args, "-4")
+		// 	case "IPv6":
+		// 		args = append(args, "-6")
+		// 	case "IPvDefault":
+		// 	default:
+		// 		w.WriteHeader(http.StatusBadRequest)
+		// 		fmt.Fprintf(w, `{"code":"BadRequest", "err":"WrongIPVersion"}`)
+		// 		return
+		// 	}
 
-			if cache.IsCached(storageHash) {
-				fmt.Fprint(w, cache.Get(storageHash))
-			} else {
-				host := "https://ahmetozer.org/cdn-cgi/tracert"
-				args = append(args, host)
-				cmd := exec.Command("curl", args...)
-				//err := cmd.Run()
-				out, err := cmd.CombinedOutput()
+		// 	if cache.IsCached(storageHash) {
+		// 		fmt.Fprint(w, cache.Get(storageHash))
+		// 	} else {
+		// 		host := "https://ahmetozer.org/cdn-cgi/tracert"
+		// 		args = append(args, host)
+		// 		cmd := exec.Command("curl", args...)
+		// 		//err := cmd.Run()
+		// 		out, err := cmd.CombinedOutput()
 
-				if err != nil { // If error occur on ping command.
-					// If given input type wich is IPv4 or IPv6 and run type is not match this error will be occur
-					if fmt.Sprint(err) == "exit status 2" {
-						fmt.Fprintf(w, cache.Set(storageHash, `{"code":"BadRequest", "err":"funcTypeMissMatchExecuted"}`))
-						return
-					}
-					//	When the ping command cannot access the server, this error will be occur
-					if fmt.Sprint(err) == "exit status 1" {
-						fmt.Fprintf(w, cache.Set(storageHash, `{"code":"Down", "err":"BadRequest"}`))
-						return
-					}
-					// If Any un expected occur, this will be shown
-					fmt.Fprintf(w, cache.Set(storageHash, `{"code":"InternalServerError","err":"UnknownExit","exitCode":`+fmt.Sprint(err)+`","execOut:`+string(out)+`"}`))
+		// 		if err != nil { // If error occur on ping command.
+		// 			// If given input type wich is IPv4 or IPv6 and run type is not match this error will be occur
+		// 			if fmt.Sprint(err) == "exit status 2" {
+		// 				fmt.Fprintf(w, cache.Set(storageHash, `{"code":"BadRequest", "err":"funcTypeMissMatchExecuted"}`))
+		// 				return
+		// 			}
+		// 			//	When the ping command cannot access the server, this error will be occur
+		// 			if fmt.Sprint(err) == "exit status 1" {
+		// 				fmt.Fprintf(w, cache.Set(storageHash, `{"code":"Down", "err":"BadRequest"}`))
+		// 				return
+		// 			}
+		// 			// If Any un expected occur, this will be shown
+		// 			fmt.Fprintf(w, cache.Set(storageHash, `{"code":"InternalServerError","err":"UnknownExit","exitCode":`+fmt.Sprint(err)+`","execOut:`+string(out)+`"}`))
 
-				} else {
+		// 		} else {
 
-					fmt.Fprint(w, cache.Set(storageHash, `{"ip":"`+functions.GetINI(string(out), "ip")+`", "loc":"`+functions.GetINI(string(out), "loc")+`"}`))
-				}
-			}
+		// 			fmt.Fprint(w, cache.Set(storageHash, `{"ip":"`+functions.GetINI(string(out), "ip")+`", "loc":"`+functions.GetINI(string(out), "loc")+`"}`))
+		// 		}
+		// 	}
 
-			return
+		// 	return
 		case "icmp":
 
 			//cmd.Dir = "/empty/"
