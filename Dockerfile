@@ -1,4 +1,5 @@
 FROM ahmetozer/golang
+LABEL org.opencontainers.image.source https://github.com/ahmetozer/net-tools-service
 WORKDIR /go/src/github.com/ahmetozer/net-tools-service
 COPY . .
 
